@@ -137,38 +137,38 @@ function calcRisk(posture, sedMs = 0) {
     if (neck !== null) {
       if (neck < 10) neckScore = 30;
       else if (neck < 18) { neckScore = 24; }
-      else if (neck < 28) { neckScore = 15; issues.push({ key: "neck", label: "Cuello adelantado", val: `${neck.toFixed(0)}°`, sev: "moderate" }); }
-      else { neckScore = 5; issues.push({ key: "neck", label: "Cuello muy adelantado", val: `${neck.toFixed(0)}°`, sev: "high" }); }
+      else if (neck < 28) { neckScore = 15; issues.push({ key: "neck", label: "Forward neck", val: `${neck.toFixed(0)}°`, sev: "moderate" }); }
+      else { neckScore = 5; issues.push({ key: "neck", label: "Severe forward neck", val: `${neck.toFixed(0)}°`, sev: "high" }); }
     }
     // Head pitch — flexion cervical con angulo real atan2 (nose-ear vector)
     // +90°=nariz apuntando al suelo (barbilla al pecho), 0°=neutral, -90°=cabeza atras
     if (chinAngle !== null && chinAngle !== undefined) {
       if (chinAngle > 55) {
         headScore = 2;
-        issues.push({ key: "head", label: "Flexion cervical severa (barbilla al pecho)", val: `${chinAngle.toFixed(0)}°`, sev: "high" });
+        issues.push({ key: "head", label: "Severe neck flexion (chin to chest)", val: `${chinAngle.toFixed(0)}°`, sev: "high" });
       } else if (chinAngle > 35) {
         headScore = 6;
-        issues.push({ key: "head", label: "Cabeza muy agachada", val: `${chinAngle.toFixed(0)}°`, sev: "high" });
+        issues.push({ key: "head", label: "Head severely flexed down", val: `${chinAngle.toFixed(0)}°`, sev: "high" });
       } else if (chinAngle > 18) {
         headScore = 10;
-        issues.push({ key: "head", label: "Cabeza ligeramente flexionada", val: `${chinAngle.toFixed(0)}°`, sev: "moderate" });
+        issues.push({ key: "head", label: "Head slightly flexed", val: `${chinAngle.toFixed(0)}°`, sev: "moderate" });
       } else if (chinAngle < -25) {
         headScore = 7;
-        issues.push({ key: "head", label: "Cabeza extendida hacia atras", val: `${Math.abs(chinAngle).toFixed(0)}°`, sev: "moderate" });
+        issues.push({ key: "head", label: "Head extended back", val: `${Math.abs(chinAngle).toFixed(0)}°`, sev: "moderate" });
       } else {
         headScore = 15;
       }
     } else if (headPitch !== null) {
-      if (headPitch < 0.3) { headScore = 5; issues.push({ key: "head", label: "Cabeza muy inclinada hacia abajo", val: "", sev: "high" }); }
-      else if (headPitch < 0.55) { headScore = 10; issues.push({ key: "head", label: "Cabeza ligeramente agachada", val: "", sev: "moderate" }); }
-      else if (headPitch > 1.4) { headScore = 8; issues.push({ key: "head", label: "Cabeza extendida hacia atras", val: "", sev: "moderate" }); }
+      if (headPitch < 0.3) { headScore = 5; issues.push({ key: "head", label: "Head too far down", val: "", sev: "high" }); }
+      else if (headPitch < 0.55) { headScore = 10; issues.push({ key: "head", label: "Head slightly down", val: "", sev: "moderate" }); }
+      else if (headPitch > 1.4) { headScore = 8; issues.push({ key: "head", label: "Head extended back", val: "", sev: "moderate" }); }
       else headScore = 15;
     }
     // Spine
     if (spine !== null) {
       if (spine < 8) spineScore = 30;
       else if (spine < 15) { spineScore = 22; }
-      else if (spine < 25) { spineScore = 14; issues.push({ key: "spine", label: "Rounded back", val: `${spine.toFixed(0)}°`, sev: "moderate" }); }
+      else if (spine < 25) { spineScore = 14; issues.push({ key: "spine", label: "Curved back", val: `${spine.toFixed(0)}°`, sev: "moderate" }); }
       else { spineScore = 4; issues.push({ key: "spine", label: "Severe back flexion", val: `${spine.toFixed(0)}°`, sev: "high" }); }
     }
     // Symmetry
@@ -204,8 +204,8 @@ function calcRisk(posture, sedMs = 0) {
     if (headTilt !== null) {
       // headTilt = (ear.y - nose.y)*100: negativo = nariz MÁS BAJA que oído = barbilla abajo
       if (headTilt < -25) { headScore = 2; issues.push({ key: "head", label: "Flexión cervical severa (barbilla al pecho)", val: `~${Math.abs(Math.round(headTilt))}u`, sev: "high" }); }
-      else if (headTilt < -10) { headScore = 7; issues.push({ key: "head", label: "Cabeza muy agachada", val: "", sev: "high" }); }
-      else if (headTilt < -4) { headScore = 10; issues.push({ key: "head", label: "Cabeza ligeramente flexionada", val: "", sev: "moderate" }); }
+      else if (headTilt < -10) { headScore = 7; issues.push({ key: "head", label: "Head severely flexed down", val: "", sev: "high" }); }
+      else if (headTilt < -4) { headScore = 10; issues.push({ key: "head", label: "Head slightly flexed", val: "", sev: "moderate" }); }
       else if (headTilt > 18) { headScore = 8; issues.push({ key: "head", label: "Cabeza extendida hacia atrás", val: "", sev: "moderate" }); }
       else { headScore = 15; }
     }
@@ -214,7 +214,7 @@ function calcRisk(posture, sedMs = 0) {
 
   // Sedentary
   const sedMin = sedMs / 60000;
-  if (sedMin > 90) { sedScore = 3; issues.push({ key: "sed", label: "Extended sitting >90min", val: `${Math.floor(sedMin)}min`, sev: "high" }); }
+  if (sedMin > 90) { sedScore = 3; issues.push({ key: "sed", label: "Extended sitting >90 min", val: `${Math.floor(sedMin)}min`, sev: "high" }); }
   else if (sedMin > 60) { sedScore = 8; }
   else if (sedMin > 30) { sedScore = 12; }
 
@@ -226,12 +226,12 @@ function calcRisk(posture, sedMs = 0) {
     if (elbowAngle != null) {
       if (elbowAngle >= 80 && elbowAngle <= 120) elbowScore = 5;
       else if (elbowAngle >= 70 && elbowAngle <= 130) elbowScore = 3;
-      else { elbowScore = 1; issues.push({ key: "elbow", label: "Angulo de codo fuera de rango", val: `${elbowAngle.toFixed(0)}°`, sev: "moderate" }); }
+      else { elbowScore = 1; issues.push({ key: "elbow", label: "Elbow angle out of range", val: `${elbowAngle.toFixed(0)}°`, sev: "moderate" }); }
     }
     if (kneeAngle != null) {
       if (kneeAngle >= 80 && kneeAngle <= 120) kneeScore = 5;
       else if (kneeAngle >= 70 && kneeAngle <= 130) kneeScore = 3;
-      else { kneeScore = 1; issues.push({ key: "knee", label: "Angulo de rodilla fuera de rango", val: `${kneeAngle.toFixed(0)}°`, sev: "moderate" }); }
+      else { kneeScore = 1; issues.push({ key: "knee", label: "Knee angle out of range", val: `${kneeAngle.toFixed(0)}°`, sev: "moderate" }); }
     }
   }
 
@@ -290,29 +290,50 @@ function angleBetween3(A, B, C) {
   return Math.acos(Math.max(-1, Math.min(1, dot / m))) * (180 / Math.PI);
 }
 
-// Dibuja línea con ángulo estilo imagen 2
+// Dibuja línea de ángulo articular con etiqueta legible (fondo semiopaco)
 function drawAngleLine(ctx, A, B, C, label, color, cW, cH) {
-  if (!A || !B || !C) return;
+  if (!A || !B || !C) return null;
   const ax = A.x * cW, ay = A.y * cH;
   const bx = B.x * cW, by = B.y * cH;
   const cx2 = C.x * cW, cy2 = C.y * cH;
   const angle = angleBetween3(A, B, C);
-  ctx.shadowColor = color + "88"; ctx.shadowBlur = 10;
-  ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+  const ok = angle >= 80 && angle <= 130;
+  const lineColor = ok ? color : T.red;
+
+  // Líneas
+  ctx.shadowColor = lineColor + "99"; ctx.shadowBlur = 8;
+  ctx.strokeStyle = lineColor; ctx.lineWidth = 2.5; ctx.lineCap = "round";
   ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(cx2, cy2); ctx.stroke();
-  // Punto en la articulación
-  ctx.beginPath(); ctx.arc(bx, by, 5, 0, Math.PI * 2);
-  ctx.fillStyle = color; ctx.shadowBlur = 16; ctx.fill();
-  ctx.beginPath(); ctx.arc(bx, by, 2.5, 0, Math.PI * 2);
-  ctx.fillStyle = "#fff"; ctx.shadowBlur = 0; ctx.fill();
-  // Etiqueta ángulo
+
+  // Punto articulación
+  ctx.beginPath(); ctx.arc(bx, by, 6, 0, Math.PI * 2);
+  ctx.fillStyle = lineColor; ctx.shadowBlur = 18; ctx.fill();
+  ctx.beginPath(); ctx.arc(bx, by, 2.8, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffffff"; ctx.shadowBlur = 0; ctx.fill();
+
+  // Etiqueta con fondo oscuro semiopaco para legibilidad
+  const txt = `${Math.round(angle)}°`;
+  const lx = bx + 18, ly = by - 16;
   ctx.font = "bold 13px 'DM Mono',monospace";
-  ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 8;
-  ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(`${Math.round(angle)}°`, bx + 16, by - 14);
+  const tw = ctx.measureText(txt).width;
+  // Fondo
+  ctx.fillStyle = "rgba(0,0,0,0.72)";
+  rRectCanvas(ctx, lx - 4, ly - 13, tw + 8, 18, 4); ctx.fill();
+  // Borde color
+  ctx.strokeStyle = lineColor; ctx.lineWidth = 1;
+  rRectCanvas(ctx, lx - 4, ly - 13, tw + 8, 18, 4); ctx.stroke();
+  // Texto
+  ctx.fillStyle = lineColor; ctx.shadowColor = lineColor; ctx.shadowBlur = 4;
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  ctx.fillText(txt, lx, ly);
   ctx.shadowBlur = 0;
   return angle;
+}
+function rRectCanvas(ctx, x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h); ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r); ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
 }
 
 function useVision({ videoRef, active, viewMode, enableHands, enableFace }) {
@@ -429,34 +450,43 @@ function useVision({ videoRef, active, viewMode, enableHands, enableFace }) {
 }
 
 // ─── CANVAS OVERLAY ───────────────────────────────────────────────────────────
-function OverlayCanvas({ persons, handRes, faceRes, W, H, showTrails, showHands, showFace }) {
+function OverlayCanvas({ persons, handRes, faceRes, W, H, showTrails, showHands, showFace, showDist, videoRef: vidRef }) {
   const ref = useRef(null);
   const trails = useRef([]);
-  // Track actual canvas display size for correct face/hand scaling
-  const sizeRef = useRef({ w: W, h: H });
 
   useEffect(() => {
     const canvas = ref.current; if (!canvas) return;
-    const ro = new ResizeObserver(entries => {
-      for (const e of entries) {
-        const { width, height } = e.contentRect;
-        if (width > 0 && height > 0) {
-          sizeRef.current = { w: width, h: height };
-          canvas.width = width;
-          canvas.height = height;
-        }
+    // Sync canvas px dimensions to its CSS display size
+    // This handles browser zoom, DPI changes, and mobile correctly
+    const sync = () => {
+      const rect = canvas.getBoundingClientRect();
+      const w = Math.round(rect.width);
+      const h = Math.round(rect.height);
+      if (w > 0 && h > 0 && (canvas.width !== w || canvas.height !== h)) {
+        canvas.width = w;
+        canvas.height = h;
       }
-    });
+    };
+    // ResizeObserver for container size changes
+    const ro = new ResizeObserver(() => sync());
     ro.observe(canvas);
-    return () => ro.disconnect();
+    // Also sync on window resize and zoom (visualViewport)
+    window.addEventListener("resize", sync);
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", sync);
+    sync();
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", sync);
+      if (window.visualViewport) window.visualViewport.removeEventListener("resize", sync);
+    };
   }, []);
 
   useEffect(() => {
     const c = ref.current; if (!c) return;
     const ctx = c.getContext("2d");
-    // Use actual canvas pixel size for correct scaling
-    const cW = c.width || W || 640;
-    const cH = c.height || H || 480;
+    // Dimensiones CSS exactas del canvas (sin dpr — dibujamos en coordenadas de pantalla)
+    const cW = c.width || 640;
+    const cH = c.height || 480;
     ctx.clearRect(0, 0, cW, cH);
     const now = Date.now();
 
@@ -507,9 +537,13 @@ function OverlayCanvas({ persons, handRes, faceRes, W, H, showTrails, showHands,
           ctx.strokeStyle = lc; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
           ctx.beginPath(); ctx.moveTo(lS.x, lS.y); ctx.lineTo(rS.x, rS.y); ctx.stroke();
           ctx.setLineDash([]);
-          ctx.fillStyle = lc; ctx.font = "bold 10px 'DM Mono',monospace";
-          ctx.textAlign = "center"; ctx.shadowBlur = 0;
-          ctx.fillText(`${shAngle >= 0 ? "+" : ""}${shAngle.toFixed(1)}°`, (lS.x + rS.x) / 2, Math.min(lS.y, rS.y) - 8);
+          ctx.font = "10px 'DM Mono',monospace";
+          const sa = `${shAngle >= 0 ? "+" : ""}${shAngle.toFixed(1)}°`;
+          const sax = (lS.x + rS.x) / 2, say = Math.min(lS.y, rS.y) - 10;
+          const saw = ctx.measureText(sa).width;
+          ctx.fillStyle = "rgba(0,0,0,0.65)"; rRectCanvas(ctx, sax - saw / 2 - 3, say - 12, saw + 6, 15, 3); ctx.fill();
+          ctx.fillStyle = lc; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.shadowBlur = 0;
+          ctx.fillText(sa, sax, say);
         }
 
         // ── Columna + puntos tronco ──
@@ -537,7 +571,10 @@ function OverlayCanvas({ persons, handRes, faceRes, W, H, showTrails, showHands,
             const tc = Math.abs(trunkAngle) < 8 ? T.amber : T.red;
             ctx.fillStyle = tc; ctx.font = "bold 10px 'DM Mono',monospace";
             ctx.textAlign = "center"; ctx.shadowBlur = 0;
-            ctx.fillText(`tronco ${trunkAngle > 0 ? "+" : ""}${trunkAngle.toFixed(1)}°`, mShX, mShY - 14);
+            ctx.font = "11px 'DM Mono',monospace"; ctx.fillStyle = tc; ctx.textAlign = "center"; ctx.shadowBlur = 0;
+            const ta = `spine ${trunkAngle > 0 ? "+" : ""}${trunkAngle.toFixed(1)}°`; const tw2 = ctx.measureText(ta).width;
+            ctx.fillStyle = "rgba(0,0,0,0.65)"; rRectCanvas(ctx, mShX - tw2 / 2 - 4, mShY - 27, tw2 + 8, 16, 3); ctx.fill();
+            ctx.fillStyle = tc; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillText(ta, mShX, mShY - 15);
           }
         }
 
@@ -568,18 +605,22 @@ function OverlayCanvas({ persons, handRes, faceRes, W, H, showTrails, showHands,
           ctx.fillText(`${pal.label} ${risk?.score ?? "-"}`, cx, cy);
         }
 
-        // ── Ángulo de cabeza y alerta ──
+        // ── Head angle + issue label (visible dark-bg labels) ──
         if (kps[0]?.score > 0.3 && risk?.issues?.length) {
           const headIss = risk.issues.find(ii => ii.key === "head");
-          if (headIss?.val) {
-            ctx.fillStyle = (headIss.sev === "high" ? T.red : T.amber) + "ee";
-            ctx.font = "bold 11px 'DM Mono',monospace"; ctx.textAlign = "center"; ctx.shadowBlur = 0;
-            ctx.fillText(headIss.val, kps[0].x, kps[0].y - 76);
-          }
+          const drawLabel = (text, x, y, color) => {
+            ctx.font = "11px 'DM Mono',monospace";
+            const tw = ctx.measureText(text).width;
+            ctx.fillStyle = "rgba(0,0,0,0.72)";
+            rRectCanvas(ctx, x - tw / 2 - 5, y - 13, tw + 10, 17, 3); ctx.fill();
+            ctx.strokeStyle = color + "99"; ctx.lineWidth = 0.8;
+            rRectCanvas(ctx, x - tw / 2 - 5, y - 13, tw + 10, 17, 3); ctx.stroke();
+            ctx.fillStyle = color; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.shadowBlur = 0;
+            ctx.fillText(text, x, y);
+          };
+          if (headIss?.val) drawLabel(headIss.val, kps[0].x, kps[0].y - 78, headIss.sev === "high" ? T.red : T.amber);
           const iss = risk.issues[0];
-          ctx.fillStyle = (iss.sev === "high" ? T.red : T.amber) + "cc";
-          ctx.font = "10px 'DM Mono',monospace"; ctx.textAlign = "center"; ctx.shadowBlur = 0;
-          ctx.fillText(`⚠ ${iss.label}`, kps[0].x, kps[0].y - 60);
+          drawLabel("⚠ " + iss.label, kps[0].x, kps[0].y - 58, iss.sev === "high" ? T.red : T.amber);
         }
         ctx.shadowBlur = 0;
       });
@@ -611,17 +652,24 @@ function OverlayCanvas({ persons, handRes, faceRes, W, H, showTrails, showHands,
     // ── FACE MESH — triangulación completa estilo MediaPipe ──
     if (showFace && faceRes?.multiFaceLandmarks) {
       faceRes.multiFaceLandmarks.forEach(face => {
-        if (!face || face.length < 400) return;
-        // Dibujar todas las conexiones del mesh — líneas muy finas semitransparentes
+        if (!face || face.length < 50) return;
+        const hasFullMesh = face.length >= 400;
+
+        // Conexiones internas — más visibles: verde claro con buena opacidad
         ctx.shadowBlur = 0;
-        ctx.strokeStyle = "rgba(0,229,160,0.28)"; ctx.lineWidth = 0.7; ctx.lineCap = "round";
-        FACE_MESH_EDGES.forEach(([i, j]) => {
-          const a = face[i], b = face[j]; if (!a || !b) return;
-          ctx.beginPath(); ctx.moveTo(a.x * cW, a.y * cH); ctx.lineTo(b.x * cW, b.y * cH); ctx.stroke();
-        });
-        // Contorno exterior más visible
-        ctx.strokeStyle = "rgba(0,229,160,0.7)"; ctx.lineWidth = 1.4; ctx.shadowColor = "rgba(0,229,160,0.5)"; ctx.shadowBlur = 6;
+        ctx.lineCap = "round";
+        if (hasFullMesh) {
+          // Zona nariz — más brillante
+          ctx.strokeStyle = "rgba(0,255,160,0.55)"; ctx.lineWidth = 0.9;
+          FACE_MESH_EDGES.forEach(([i, j]) => {
+            const a = face[i], b = face[j]; if (!a || !b) return;
+            ctx.beginPath(); ctx.moveTo(a.x * cW, a.y * cH); ctx.lineTo(b.x * cW, b.y * cH); ctx.stroke();
+          });
+        }
+
+        // Óvalo exterior — bien visible
         const OVAL = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109, 10];
+        ctx.strokeStyle = "#00FFB0"; ctx.lineWidth = 2; ctx.shadowColor = "rgba(0,255,176,0.7)"; ctx.shadowBlur = 8;
         ctx.beginPath();
         let ovStarted = false;
         OVAL.forEach(fi => {
@@ -630,26 +678,26 @@ function OverlayCanvas({ persons, handRes, faceRes, W, H, showTrails, showHands,
           ovStarted = true;
         });
         ctx.closePath(); ctx.stroke();
-        // Puntos nodales en intersecciones clave (ojos, nariz, boca, mentón)
-        [1, 4, 33, 133, 362, 263, 61, 291, 13, 14, 152, 10, 234, 454, 70, 300].forEach(fi => {
+
+        // Puntos nodales clave — blancos brillantes con borde verde
+        [1, 4, 33, 133, 362, 263, 61, 291, 13, 14, 152, 10, 234, 454, 70, 300, 168, 6].forEach(fi => {
           const lm = face[fi]; if (!lm) return;
-          ctx.beginPath(); ctx.arc(lm.x * cW, lm.y * cH, 2, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(0,229,160,0.9)"; ctx.shadowColor = "rgba(0,229,160,0.8)"; ctx.shadowBlur = 8; ctx.fill();
+          ctx.beginPath(); ctx.arc(lm.x * cW, lm.y * cH, 3, 0, Math.PI * 2);
+          ctx.fillStyle = "#00FFB0"; ctx.shadowColor = "rgba(0,255,176,0.9)"; ctx.shadowBlur = 12; ctx.fill();
+          ctx.beginPath(); ctx.arc(lm.x * cW, lm.y * cH, 1.2, 0, Math.PI * 2);
+          ctx.fillStyle = "#ffffff"; ctx.shadowBlur = 0; ctx.fill();
         });
         ctx.shadowBlur = 0;
       });
     }
 
-    // ── ÁNGULOS ARTICULARES LATERALES (imagen 2 + imagen 3) ──
-    // Solo en modo lateral O cuando los landmarks de cadera son visibles
+    // ── ÁNGULOS ARTICULARES — ambos lados independientes ──
     if (persons?.length) {
       persons.forEach((p) => {
         const kps = p.keypoints;
-        const get = (i) => kps[i]?.score > 0.3 ? { x: kps[i].x / cW, y: kps[i].y / cH } : null;
-        // Normalizar a 0-1 para usar drawAngleLine
-        const norm = (i) => kps[i]?.score > 0.3 ? { x: kps[i].x / cW, y: kps[i].y / cH } : null;
+        // Normalizar keypoints a 0-1 (están en px del canvas)
+        const norm = (i) => kps[i]?.score > 0.28 ? { x: kps[i].x / cW, y: kps[i].y / cH } : null;
 
-        const nose = norm(0);
         const lEar = norm(3), rEar = norm(4);
         const lSh = norm(5), rSh = norm(6);
         const lEl = norm(7), rEl = norm(8);
@@ -658,50 +706,98 @@ function OverlayCanvas({ persons, handRes, faceRes, W, H, showTrails, showHands,
         const lKn = norm(13), rKn = norm(14);
         const lAn = norm(15), rAn = norm(16);
 
-        // Detectar si vista es más lateral (un lado del cuerpo más visible)
-        const isLateral = lSh && rSh && Math.abs(lSh.x - rSh.x) < 0.12;
+        // Vista lateral: hombros muy juntos en X
+        const isLateral = lSh && rSh && Math.abs(lSh.x - rSh.x) < 0.14;
+        // Cuál lado es más visible (mayor score)
+        const leftScore = (kps[5]?.score || 0) + (kps[7]?.score || 0) + (kps[11]?.score || 0);
+        const rightScore = (kps[6]?.score || 0) + (kps[8]?.score || 0) + (kps[12]?.score || 0);
 
-        // Usar el lado más visible
-        const ear = lEar || rEar;
-        const sh = lSh || rSh;
-        const el = lEl || rEl;
-        const wr = lWr || rWr;
-        const hip = lHip || rHip;
-        const kn = lKn || rKn;
-        const an = lAn || rAn;
-
-        // ── Ángulo de cuello lateral (oído→hombro→cadera) — imagen 2 ──
-        if (isLateral && ear && sh && hip) {
-          drawAngleLine(ctx, ear, sh, hip, "Cuello", T.red, cW, cH);
+        // ── Ángulo cuello lateral ──
+        if (isLateral) {
+          const ear = leftScore > rightScore ? lEar : rEar;
+          const sh = leftScore > rightScore ? lSh : rSh;
+          const hip = leftScore > rightScore ? lHip : rHip;
+          if (ear && sh && hip) drawAngleLine(ctx, ear, sh, hip, "Cuello", T.red, cW, cH);
         }
 
-        // ── Ángulo de columna/tronco (hombro→cadera→rodilla) ──
-        if (sh && hip && kn) {
-          drawAngleLine(ctx, sh, hip, kn, "Tronco", "#FF9500", cW, cH);
-        }
-
-        // ── Ángulo de codo (hombro→codo→muñeca) — imagen 3 ──
-        if (sh && el && wr) {
-          const ang = drawAngleLine(ctx, sh, el, wr, "Codo", "#4B9EFF", cW, cH);
-          // ISO: codo 90-120° ideal
-          if (ang && (ang < 80 || ang > 130)) {
-            ctx.fillStyle = T.red + "cc"; ctx.font = "9px monospace"; ctx.textAlign = "center"; ctx.shadowBlur = 0;
-            ctx.fillText(ang < 80 ? "Codo muy cerrado" : "Codo muy abierto", el.x * cW, el.y * cH + 22);
+        // ── Codo IZQUIERDO ──
+        if (lSh && lEl && lWr) {
+          const ang = drawAngleLine(ctx, lSh, lEl, lWr, "", "#4B9EFF", cW, cH);
+          if (ang != null) {
+            const ok = ang >= 80 && ang <= 130;
+            ctx.fillStyle = ok ? T.green : T.red; ctx.font = "bold 11px 'DM Mono',monospace";
+            ctx.textAlign = "center"; ctx.shadowColor = ok ? T.green : T.red; ctx.shadowBlur = 6;
+            ctx.fillText(ok ? "Elbow OK" : ang < 80 ? "Elbow closed" : "Elbow too open", lEl.x * cW, lEl.y * cH + 22);
+            ctx.shadowBlur = 0;
           }
         }
 
-        // ── Ángulo de cadera (hombro→cadera→rodilla) ──
-        if (sh && hip && kn) {
-          const hx = hip.x * cW, hy = hip.y * cH;
-          const ang2 = angleBetween3(sh, hip, kn);
-          const hc = ang2 >= 80 && ang2 <= 120 ? T.green : T.amber;
-          ctx.fillStyle = hc; ctx.font = "bold 12px monospace"; ctx.textAlign = "left";
-          ctx.fillText(`${Math.round(ang2)}°`, hx + 8, hy + 4);
+        // ── Codo DERECHO ──
+        if (rSh && rEl && rWr) {
+          const ang = drawAngleLine(ctx, rSh, rEl, rWr, "", "#4B9EFF", cW, cH);
+          if (ang != null) {
+            const ok = ang >= 80 && ang <= 130;
+            ctx.fillStyle = ok ? T.green : T.red; ctx.font = "bold 11px 'DM Mono',monospace";
+            ctx.textAlign = "center"; ctx.shadowColor = ok ? T.green : T.red; ctx.shadowBlur = 6;
+            ctx.fillText(ok ? "Elbow OK" : ang < 80 ? "Elbow closed" : "Elbow too open", rEl.x * cW, rEl.y * cH + 22);
+            ctx.shadowBlur = 0;
+          }
         }
 
-        // ── Ángulo de rodilla (cadera→rodilla→tobillo) — imagen 3 ──
-        if (hip && kn && an) {
-          drawAngleLine(ctx, hip, kn, an, "Rodilla", "#A78BFA", cW, cH);
+        // ── Rodilla IZQUIERDA ──
+        if (lHip && lKn && lAn) drawAngleLine(ctx, lHip, lKn, lAn, "", "#A78BFA", cW, cH);
+
+        // ── Rodilla DERECHA ──
+        if (rHip && rKn && rAn) drawAngleLine(ctx, rHip, rKn, rAn, "", "#A78BFA", cW, cH);
+
+        // ── Cadera/tronco ──
+        if (isLateral) {
+          const sh = leftScore > rightScore ? lSh : rSh;
+          const hip = leftScore > rightScore ? lHip : rHip;
+          const kn = leftScore > rightScore ? lKn : rKn;
+          if (sh && hip && kn) drawAngleLine(ctx, sh, hip, kn, "Tronco", "#FF9500", cW, cH);
+        }
+
+        // ── DISTANCIA A PANTALLA (estimada por tamaño de cara) ──
+        if (showDist && faceRes?.multiFaceLandmarks?.[0]) {
+          const face = faceRes.multiFaceLandmarks[0];
+          const lm234 = face[234], lm454 = face[454]; // pómulos izquierdo y derecho
+          const lm10 = face[10], lm152 = face[152];   // frente y mentón
+          if (lm234 && lm454 && lm10 && lm152) {
+            const faceWidthPx = (lm454.x - lm234.x) * cW;
+            const faceHeightPx = (lm152.y - lm10.y) * cH;
+            // Face promedio adulto: ~14-15cm ancho, ~19-20cm alto
+            // Fórmula: dist_cm ≈ (focal * real_cm) / pixel_size
+            // Focal estimada ~600px para webcam típica a 640px de ancho
+            const focalPx = cW * 0.85; // estimación focal
+            const realFaceCm = 15;
+            const distCm = faceWidthPx > 10 ? (focalPx * realFaceCm) / faceWidthPx : null;
+            if (distCm) {
+              const ok = distCm >= 45 && distCm <= 70;
+              const distColor = ok ? T.green : distCm < 45 ? T.red : T.amber;
+              const distLabel = `Screen distance: ~${Math.round(distCm)} cm`;
+              const subLabel = distCm < 45 ? "Too close — move monitor back" : distCm > 70 ? "Too far — bring monitor closer" : "Optimal distance (45-70 cm)";
+              // Caja de distancia — esquina superior izquierda
+              const bx = 12, by = cH - 60, bw = 260, bh = 46;
+              ctx.fillStyle = "rgba(0,0,0,0.75)";
+              rRectCanvas(ctx, bx, by, bw, bh, 8); ctx.fill();
+              ctx.strokeStyle = distColor; ctx.lineWidth = 1.5;
+              rRectCanvas(ctx, bx, by, bw, bh, 8); ctx.stroke();
+              // Barra de progreso 0-100cm
+              const barW = bw - 20, barH = 5;
+              ctx.fillStyle = "rgba(255,255,255,0.1)";
+              rRectCanvas(ctx, bx + 10, by + 32, barW, barH, 2); ctx.fill();
+              const pct = Math.min(1, Math.max(0, (distCm - 20) / (80 - 20)));
+              ctx.fillStyle = distColor;
+              rRectCanvas(ctx, bx + 10, by + 32, barW * pct, barH, 2); ctx.fill();
+              // Textos
+              ctx.font = "12px 'DM Mono',monospace"; ctx.fillStyle = distColor;
+              ctx.textAlign = "left"; ctx.shadowColor = distColor; ctx.shadowBlur = 4;
+              ctx.fillText(distLabel, bx + 10, by + 16);
+              ctx.font = "10px 'DM Mono',monospace"; ctx.fillStyle = "rgba(220,230,255,0.85)"; ctx.shadowBlur = 0;
+              ctx.fillText(subLabel, bx + 10, by + 28);
+            }
+          }
         }
       });
     }
@@ -862,12 +958,12 @@ async function generatePDF(reportData) {
   doc.text("ERGO", M, y);
   doc.setTextColor(...GREEN); doc.text(".HSE", M + 29, y);
   doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(...MUTED);
-  doc.text("SISTEMA DE EVALUACIÓN ERGONÓMICA BASADO EN IA", M, y + 6);
+  doc.text("AI-POWERED ERGONOMIC ASSESSMENT SYSTEM", M, y + 6);
   doc.setFontSize(7.5); doc.setTextColor(...MUTED);
-  doc.text("Informe de Evaluación de Riesgo Ergonómico", M, y + 11);
+  doc.text("Ergonomic Risk Assessment Report", M, y + 11);
 
   // Fecha y número de informe
-  const fechaStr = new Date().toLocaleDateString("es-ES", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  const fechaStr = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
   doc.setFontSize(7); doc.setTextColor(...MUTED);
   doc.text(fechaStr.charAt(0).toUpperCase() + fechaStr.slice(1), PW - M, y + 3, { align: "right" });
   doc.text(`Ref: ERGO-${Date.now().toString().slice(-6)}`, PW - M, y + 8, { align: "right" });
@@ -886,14 +982,14 @@ async function generatePDF(reportData) {
       doc.setFillColor(14, 16, 26, 0.7); doc.setFillColor(14, 16, 26);
       doc.roundedRect(M, y + imgH - 7, 50, 7, 0, 0, "F");
       doc.setFontSize(6.5); doc.setTextColor(...ACCENT);
-      doc.text("Captura de sesión con esqueleto de postura", M + 2, y + imgH - 3);
+      doc.text("Session capture with posture skeleton", M + 2, y + imgH - 3);
     } catch (e) { console.warn("No se pudo insertar captura", e); }
     y += imgH + 6;
   } else {
     // Sin captura — dibujar esqueleto vectorial centrado
     const skel_cx = PW / 2, skel_cy = y + 45;
     doc.setFontSize(7); doc.setTextColor(...MUTED);
-    doc.text("Representación vectorial de postura detectada", PW / 2, y + 3, { align: "center" });
+    doc.text("Vectorial posture representation", PW / 2, y + 3, { align: "center" });
     // Fondo
     doc.setFillColor(...CARD); doc.roundedRect(M, y + 6, PW - M * 2, 78, 4, 4, "F");
     // Dibujar esqueleto(s)
@@ -913,14 +1009,14 @@ async function generatePDF(reportData) {
   doc.roundedRect(M, y, PW - M * 2, 42, 3, 3, "FD");
 
   const campos = [
-    ["Operador", reportData.operator || "Profesional HSE"],
-    ["Ubicación / Área", reportData.location || "—"],
+    ["Operator", reportData.operator || "HSE Professional"],
+    ["Location / Area", reportData.location || "—"],
     ["Fecha", fechaStr.charAt(0).toUpperCase() + fechaStr.slice(1)],
-    ["Duración del muestreo", `${reportData.samplingMin} minuto${reportData.samplingMin !== 1 ? "s" : ""}`],
-    ["Modo de vista", reportData.viewMode === "lateral" ? "Lateral (Vista de lado)" : "Frontal (Vista de frente)"],
-    ["Personas analizadas", String(reportData.personsData.length)],
-    ["Total de muestras", String(reportData.totalSnapshots || 0)],
-    ["Normas de referencia", "ISO 11226 · EN 1005-4 · NIOSH"],
+    ["Sampling Duration", `${reportData.samplingMin} minute${reportData.samplingMin !== 1 ? "s" : ""}`],
+    ["View Mode", reportData.viewMode === "lateral" ? "Lateral (Side View)" : "Frontal (Front View)"],
+    ["Persons Analyzed", String(reportData.personsData.length)],
+    ["Total Samples", String(reportData.totalSnapshots || 0)],
+    ["Standards Reference", "ISO 11226 · EN 1005-4 · NIOSH"],
   ];
   campos.forEach((row, i) => {
     const col = i % 2, rowI = Math.floor(i / 2);
@@ -937,7 +1033,7 @@ async function generatePDF(reportData) {
   const avgScore = Math.round(reportData.personsData.reduce((s, p) => s + (p.avgScore || 0), 0) / Math.max(reportData.personsData.length, 1));
   const scColor = s2c(avgScore);
   const scRGB = h2r(scColor);
-  const nivelLabel = avgScore >= 92 ? "Excelente" : avgScore >= 75 ? "Bueno" : avgScore >= 55 ? "Riesgo Moderado" : "Riesgo Alto";
+  const nivelLabel = avgScore >= 92 ? "Excellent" : avgScore >= 75 ? "Bueno" : avgScore >= 55 ? "Riesgo Moderate" : "High Risk";
 
   doc.setFillColor(...CARD); doc.roundedRect(M, y, PW - M * 2, 26, 3, 3, "F");
   // Barra de fondo
@@ -959,7 +1055,7 @@ async function generatePDF(reportData) {
   // ══════════════════════════════════════════════════════
   newPage();
 
-  secHeader("RESUMEN EJECUTIVO", "[1]");
+  secHeader("EXECUTIVE SUMMARY", "[1]");
   const resumen = genResumenES(reportData, avgScore);
   resumen.forEach(l => {
     if (l === "") { y += 2; return; }
@@ -975,15 +1071,15 @@ async function generatePDF(reportData) {
   y += 4; divider();
 
   // ── TABLA DE MÉTRICAS ANGULARES ──
-  secHeader("TABLA DE ANGULOS Y METRICAS POSTURALES", "[2]");
+  secHeader("ANGLE & POSTURE METRICS TABLE", "[2]");
 
   // Encabezado tabla
   const cols = [M + 2, M + 38, M + 70, M + 100, M + 130, M + 158];
-  const colLabels = ["Persona", "Cuello (°)", "Espalda (°)", "Asimetría (%)", "Cabeza", "Score"];
+  const colLabels = ["Person", "Neck (°)", "Spine (°)", "Asymmetry (%)", "Head", "Score"];
   doc.setFillColor(28, 34, 54); doc.roundedRect(M, y - 3, PW - M * 2, 9, 2, 2, "F");
   doc.setFontSize(7.5); doc.setFont("helvetica", "bold"); doc.setTextColor(...ACCENT);
   colLabels.forEach((cl, i) => doc.text(cl, cols[i], y + 3));
-  y += 10;
+  y += 14;
 
   reportData.personsData.forEach((pd, i) => {
     checkPage(10);
@@ -1020,7 +1116,7 @@ async function generatePDF(reportData) {
     const headIss = pd.issues?.find(iss2 => iss2.key === "head");
     if (headIss) { doc.setTextColor(headIss.sev === "high" ? 196 : 196, headIss.sev === "high" ? 58 : 122, headIss.sev === "high" ? 80 : 26); }
     else { doc.setTextColor(29, 184, 122); }
-    doc.text(headIss ? "Ajustar" : "Normal", cols[4], y + 2);
+    doc.text(headIss ? "Adjust" : "Normal", cols[4], y + 2);
 
     // Score con mini barra
     const sc2 = s2c(pd.avgScore);
@@ -1036,8 +1132,8 @@ async function generatePDF(reportData) {
   // Leyenda de colores de ángulos
   checkPage(16);
   doc.setFontSize(7); doc.setFont("helvetica", "normal");
-  const legend = [["<10°", "Excelente", "#1db87a"], ["10–18°", "Aceptable", "#8ab870"], ["18–28°", "Advertencia", "#c47a1a"], [">28°", "Riesgo alto", "#c43a50"]];
-  doc.setTextColor(...MUTED); doc.text("Referencia de ángulos de cuello:", M, y); y += 5;
+  const legend = [["<10°", "Excellent", "#1db87a"], ["10–18°", "Acceptable", "#8ab870"], ["18–28°", "Warning", "#c47a1a"], [">28°", "High risk", "#c43a50"]];
+  doc.setTextColor(...MUTED); doc.text("Neck angle reference:", M, y); y += 5;
   legend.forEach((l, i) => {
     doc.setFillColor(...h2r(l[2])); doc.circle(M + 4 + i * 44, y - 1.5, 2, "F");
     doc.setTextColor(...h2r(l[2])); doc.text(`${l[0]} ${l[1]}`, M + 8 + i * 44, y);
@@ -1045,7 +1141,7 @@ async function generatePDF(reportData) {
   y += 8; divider();
 
   // ── ANÁLISIS POR PERSONA ──
-  secHeader("ANALISIS INDIVIDUAL POR PERSONA", "[3]");
+  secHeader("INDIVIDUAL PERSON ANALYSIS", "[3]");
 
   reportData.personsData.forEach((pd, i) => {
     checkPage(55);
@@ -1054,8 +1150,8 @@ async function generatePDF(reportData) {
 
     // Card de persona
     doc.setFillColor(...CARD); doc.setDrawColor(...h2r(pal.stroke)); doc.setLineWidth(0.3);
-    doc.roundedRect(M, y, PW - M * 2, 10, 2, 2, "FD");
-    doc.setFillColor(...h2r(pal.stroke)); doc.roundedRect(M, y, 3, 10, 1, 1, "F");
+    doc.roundedRect(M, y, PW - M * 2, 12, 2, 2, "FD");
+    doc.setFillColor(...h2r(pal.stroke)); doc.roundedRect(M, y, 3, 12, 1, 1, "F");
     doc.setFontSize(9.5); doc.setFont("helvetica", "bold"); doc.setTextColor(...h2r(pal.stroke));
     doc.text(`Persona ${i + 1}  (${pal.label})`, M + 6, y + 7);
     doc.setTextColor(...h2r(sc2));
@@ -1064,11 +1160,11 @@ async function generatePDF(reportData) {
 
     // Métricas en dos columnas
     const metricas = [
-      { label: "Posición del cuello / cabeza", score: pd.breakdown?.neck ?? 25, max: 30 },
-      { label: "Cabeza vertical (arriba/abajo)", score: pd.breakdown?.head ?? 12, max: 15 },
-      { label: "Postura de espalda / columna", score: pd.breakdown?.spine ?? 25, max: 30 },
-      { label: "Simetría de hombros", score: pd.breakdown?.sym ?? 12, max: 15 },
-      { label: "Tiempo sedentario", score: pd.breakdown?.sed ?? 12, max: 10 },
+      { label: "Neck / Head Position", score: pd.breakdown?.neck ?? 25, max: 30 },
+      { label: "Head Vertical (Up/Down)", score: pd.breakdown?.head ?? 12, max: 15 },
+      { label: "Spine / Back Posture", score: pd.breakdown?.spine ?? 25, max: 30 },
+      { label: "Shoulder Symmetry", score: pd.breakdown?.sym ?? 12, max: 15 },
+      { label: "Sedentary Time", score: pd.breakdown?.sed ?? 12, max: 10 },
     ];
     metricas.forEach((m, mi) => {
       checkPage(8);
@@ -1092,7 +1188,7 @@ async function generatePDF(reportData) {
     if (pd.issues?.length) {
       y += 2;
       doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(...AMBER);
-      doc.text("Desviaciones detectadas:", M + 4, y); y += 5;
+      doc.text("Detected Issues:", M + 4, y); y += 5;
       pd.issues.forEach(iss => {
         checkPage(6);
         const ic = iss.sev === "high" ? RED : AMBER;
@@ -1108,7 +1204,7 @@ async function generatePDF(reportData) {
   // PÁGINA 3 — RECOMENDACIONES + NOTAS TÉCNICAS
   // ══════════════════════════════════════════════════════
   newPage();
-  secHeader("RECOMENDACIONES ERGONOMICAS", "[4]");
+  secHeader("ERGONOMIC RECOMMENDATIONS", "[4]");
   const recs = genRecomendacionesES(reportData, avgScore);
   recs.forEach(rec => {
     checkPage(18);
@@ -1124,14 +1220,14 @@ async function generatePDF(reportData) {
   });
 
   y += 2; divider();
-  secHeader("NOTAS TECNICAS Y METODOLOGIA", "[5]");
+  secHeader("TECHNICAL NOTES & METHODOLOGY", "[5]");
   const notas = [
-    `Método de medición: Estimación de postura mediante visión computacional con modelo TensorFlow MoveNet MultiPose Lightning. Frecuencia de muestreo: ~12 cuadros/segundo con throttle a ${Math.round(1000 / 80)} fps efectivos.`,
-    `Cálculo de ángulos: Ángulo de cuello calculado como desviación del vector oído-hombro respecto al eje vertical (modo lateral) o vector nariz-punto medio de hombros (modo frontal). Ángulo de columna: vector punto medio hombros → punto medio caderas vs. vertical.`,
-    `Modo de vista utilizado: ${reportData.viewMode === "lateral" ? "LATERAL (ángulo 30–45°) — recomendado para máxima precisión en postura de cuello adelantado y cifosis torácica." : "FRONTAL (vista de frente) — recomendado para asimetría de hombros e inclinación lateral de cabeza."}`,
-    `Marco de puntuación HSE: Puntuación compuesta ponderada (0–100) según ISO 11226, EN 1005-4 y guías NIOSH. Cuello: 30 pts · Espalda: 30 pts · Posición de cabeza: 15 pts · Simetría: 15 pts · Tiempo sedentario: 10 pts.`,
-    `Umbrales de confianza: Puntos anatómicos con confianza de detección <0.25 son excluidos del análisis para evitar falsos positivos.`,
-    `Limitaciones: Esta herramienta provee una evaluación de nivel de tamizaje (screening). No reemplaza una evaluación completa de salud ocupacional por un ergónomo certificado o médico ocupacional. Resultados pueden verse afectados por iluminación, ángulo de cámara y oclusión parcial del cuerpo.`,
+    `Measurement Method: Posture estimation via computer vision using TensorFlow MoveNet MultiPose Lightning model. Frecuencia de muestreo: ~12 cuadros/segundo con throttle a ${Math.round(1000 / 80)} fps efectivos.`,
+    `Angle Computation: Neck angle calculated as deviation of the ear-shoulder vector from vertical (lateral mode) or nose-to-shoulder-midpoint vector (frontal mode). Spine angle uses shoulder midpoint to hip midpoint vs. vertical.`,
+    `Modo de vista utilizado: ${reportData.viewMode === "lateral" ? "LATERAL (30–45° side angle) — recommended for highest accuracy in forward head posture and thoracic kyphosis." : "FRONTAL (front view) — recommended for shoulder asymmetry and lateral head tilt assessment."}`,
+    `HSE Scoring: Weighted composite score (0–100) per ISO 11226, EN 1005-4, NIOSH. Neck: 30pts · Spine: 30pts · Head: 15pts · Symmetry: 15pts · Sedentary: 10pts.`,
+    `Confidence Thresholds: Landmarks with detection confidence <0.25 are excluded to prevent false positives.`,
+    `Limitations: This tool provides a screening-level assessment only. It does not replace a full occupational health evaluation by a certified ergonomist. Results may be affected by lighting, camera angle, and partial body occlusion.`,
   ];
   notas.forEach(n => { bodyText(n, MUTED, 8); y += 2; });
 
@@ -1141,14 +1237,14 @@ async function generatePDF(reportData) {
   doc.setFillColor(...CARD); doc.roundedRect(M, y, PW - M * 2, 24, 3, 3, "F");
   doc.setDrawColor(...GREEN); doc.setLineWidth(0.3); doc.roundedRect(M, y, PW - M * 2, 24, 3, 3, "D");
   doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(...MUTED);
-  doc.text("Elaborado por:", M + 6, y + 7);
+  doc.text("Prepared by:", M + 6, y + 7);
   doc.setFont("helvetica", "bold"); doc.setTextColor(...ACCENT);
   doc.text("Juan Carlos Cordova", M + 6, y + 14);
   doc.setFont("helvetica", "normal"); doc.setTextColor(...MUTED); doc.setFontSize(7);
-  doc.text("Profesional HSE / Ingeniero de Campo", M + 6, y + 20);
+  doc.text("HSE Professional / Field Engineer", M + 6, y + 20);
   doc.setFontSize(7.5); doc.setTextColor(...MUTED);
-  doc.text("Firma: ___________________________", PW - M - 2, y + 13, { align: "right" });
-  doc.text("Fecha: " + new Date().toLocaleDateString("es-ES"), PW - M - 2, y + 20, { align: "right" });
+  doc.text("Signature: ___________________________", PW - M - 2, y + 13, { align: "right" });
+  doc.text("Date: " + new Date().toLocaleDateString("en-US"), PW - M - 2, y + 20, { align: "right" });
   y += 28;
 
   // ── FOOTER EN CADA PÁGINA ──
@@ -1159,14 +1255,14 @@ async function generatePDF(reportData) {
     doc.setDrawColor(...GREEN); doc.setLineWidth(0.2); doc.line(0, PH - 11, PW, PH - 11);
     doc.setFillColor(20, 24, 40); doc.rect(0, PH - 11, 4, 11, "F");
     doc.setFontSize(6.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...MUTED);
-    doc.text(`ERGO.HSE AI  ·  Informe de Evaluación Ergonómica  ·  ${reportData.location || ""}  ·  ${new Date().toLocaleDateString("es-ES")}`, M, PH - 5);
+    doc.text(`ERGO.HSE AI  ·  Ergonomic Assessment Report  ·  ${reportData.location || ""}  ·  ${new Date().toLocaleDateString("en-US")}`, M, PH - 5);
     doc.text(`Pág. ${i} / ${totalPgs}`, PW - M, PH - 5, { align: "right" });
   }
 
   doc.save(`ERGO_HSE_Informe_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-function nivelFromScore(s) { return s >= 92 ? "Excelente" : s >= 75 ? "Bueno" : s >= 55 ? "Riesgo Moderado" : "Riesgo Alto"; }
+function nivelFromScore(s) { return s >= 92 ? "Excellent" : s >= 75 ? "Good" : s >= 55 ? "Moderate Risk" : "High Risk"; }
 
 function sectionHeader(doc, margin, y, title, W) {
   doc.setFillColor(22, 26, 42);
@@ -1186,19 +1282,19 @@ function genResumenES(rd, avgScore) {
   const alto = rd.personsData.filter(p => p.avgScore < 55).length;
   const mod = rd.personsData.filter(p => p.avgScore >= 55 && p.avgScore < 75).length;
   const lines = [];
-  lines.push(`La presente evaluación ergonómica fue realizada durante un período de muestreo de ${rd.samplingMin} minuto${rd.samplingMin !== 1 ? "s" : ""}, utilizando estimación de postura basada en inteligencia artificial en modo de vista ${rd.viewMode === "lateral" ? "lateral" : "frontal"}. Se analizó un total de ${n} persona${n !== 1 ? "s" : ""}.`);
+  lines.push(`This ergonomic assessment was conducted over a ${rd.samplingMin}-minute sampling period using AI-powered pose estimation in ${rd.viewMode === "lateral" ? "lateral (side)" : "frontal (front)"} view mode. A total of ${n} individual${n !== 1 ? "s were" : "was"} analyzed.`);
   lines.push("");
-  lines.push(`La sesión arrojó una puntuación ergonómica compuesta de ${avgScore}/100, clasificada como ${nivel}.`);
-  if (alto > 0) lines.push(`• ${alto} persona${alto > 1 ? "s" : ""}  presentó patrones de postura de RIESGO ALTO que requieren intervención inmediata.`);
-  if (mod > 0) lines.push(`• ${mod} persona${mod > 1 ? "s" : ""}  mostró patrones de RIESGO MODERADO que ameritan seguimiento.`);
+  lines.push(`The session yielded a composite ergonomic score of ${avgScore}/100, classified as ${nivel}.`);
+  if (alto > 0) lines.push(`• ${alto} individual${alto > 1 ? "s" : ""}  exhibited HIGH RISK posture patterns requiring immediate intervention.`);
+  if (mod > 0) lines.push(`• ${mod} individual${mod > 1 ? "s" : ""}  showed MODERATE RISK patterns warranting follow-up assessment.`);
   lines.push("");
   const allIssues = rd.personsData.flatMap(p => p.issues || []);
   const cnt = {}; allIssues.forEach(i => { cnt[i.key] = (cnt[i.key] || 0) + 1; });
   const top = Object.entries(cnt).sort((a, b) => b[1] - a[1]).slice(0, 4);
   if (top.length) {
-    lines.push("Desviaciones ergonómicas más frecuentes detectadas durante la sesión:");
-    const labels = { neck: "Postura adelantada de cabeza/cuello", spine: "Flexión torácica / espalda encorvada", sym: "Asimetría de hombros", head: "Posición vertical anormal de la cabeza", sed: "Tiempo sedentario prolongado", tilt: "Inclinación lateral de la cabeza" };
-    top.forEach(([k, c]) => { lines.push(`• ${labels[k] || k} — detectado en ${c} de ${n} persona${n !== 1 ? "s" : ""}`); });
+    lines.push("Most frequent ergonomic deviations detected during the session:");
+    const labels = { neck: "Forward head/neck posture", spine: "Thoracic flexion / rounded back", sym: "Shoulder asymmetry", head: "Abnormal head vertical position", sed: "Prolonged sedentary time", tilt: "Lateral head tilt", elbow: "Elbow angle out of range", knee: "Knee angle out of range" };
+    top.forEach(([k, c]) => { lines.push(`• ${labels[k] || k} — detected in ${c} of ${n} individual${n !== 1 ? "s" : ""}`); });
   }
   return lines;
 }
@@ -1209,41 +1305,43 @@ function genRecomendacionesES(rd, avgScore) {
   const has = k => all.some(i => i.key === k);
   const hasH = k => all.some(i => i.key === k && i.sev === "high");
 
-  const ws = { categoria: "CONFIGURACIÓN DEL PUESTO DE TRABAJO", items: [] };
-  ws.items.push("Posicionar el monitor a la distancia de un brazo (50–70 cm) con la parte superior de la pantalla al nivel de los ojos o ligeramente por debajo.");
-  ws.items.push("Utilizar silla ajustable con soporte lumbar. Ajustar la altura del asiento para que los muslos queden paralelos al suelo y los pies descansen planos.");
-  if (has("neck") || has("head")) ws.items.push("Elevar el monitor 5–10 cm si se detectó postura de cuello adelantado. Usar soporte de monitor o elevador de laptop.");
-  if (has("spine")) ws.items.push("Asegurar que el respaldo de la silla soporte la curva lumbar natural. Considerar un cojín lumbar si no hay soporte integrado.");
-  if (has("sym") || has("tilt")) ws.items.push("Revisar la ubicación del teclado y ratón — la posición descentrada genera asimetría crónica de hombros y cuello.");
+  const ws = { categoria: "WORKSTATION SETUP", items: [] };
+  ws.items.push("Position the monitor at arm's length (50–70 cm) with the top of the screen at or slightly below eye level.");
+  ws.items.push("Use an adjustable chair with lumbar support. Set seat height so thighs are parallel to the floor and feet rest flat on the ground.");
+  if (has("neck") || has("head")) ws.items.push("Raise monitor 5–10 cm if forward head posture was detected. Use a monitor stand or laptop riser.");
+  if (has("spine")) ws.items.push("Ensure the chair back supports the natural lumbar curve. Consider a lumbar roll if no built-in support.");
+  if (has("sym") || has("tilt")) ws.items.push("Check keyboard and mouse placement — off-center positioning leads to chronic shoulder and neck asymmetry.");
+  if (has("elbow")) ws.items.push("Adjust armrests so elbows rest at 90–120°. Bring keyboard closer to reduce reach.");
+  if (has("knee")) ws.items.push("Adjust seat height so thighs are horizontal and feet are flat — knee angle should be 90–120°.");
   recs.push(ws);
 
-  const pc = { categoria: "PROTOCOLO DE CORRECCIÓN POSTURAL", items: [] };
-  if (hasH("neck")) pc.items.push("URGENTE: Reeducar la posición neutral de la cabeza. El oído debe alinearse verticalmente sobre el hombro. Usar recordatorio de postura o señal física (marca en el monitor).");
-  else if (has("neck")) pc.items.push("Practicar retracciones de mentón: tirar el mentón hacia atrás en línea recta, mantener 5s, repetir 10 veces, 3 veces/día para contrarrestar la postura de cabeza adelantada.");
-  if (has("spine")) pc.items.push("Realizar estiramientos de extensión torácica cada 30 minutos: entrelazar manos detrás de la cabeza y arquearse suavemente sobre el respaldo de la silla.");
-  if (has("head")) pc.items.push("Ajustar la altura del monitor o la silla. La cabeza debe mantenerse naturalmente erguida, sin forzarla hacia arriba o hacia abajo para ver la pantalla.");
-  if (pc.items.length === 0) pc.items.push("Mantener los hábitos posturales actuales. Continuar con pausas de movimiento regulares.");
+  const pc = { categoria: "POSTURE CORRECTION PROTOCOL", items: [] };
+  if (hasH("neck")) pc.items.push("URGENT: Retrain head neutral position. Ear should align vertically over shoulder. Use a posture reminder app or physical cue (tape on monitor).");
+  else if (has("neck")) pc.items.push("Practice chin tucks: pull chin straight back, hold 5s, repeat 10×, 3 times/day to counteract forward head posture.");
+  if (has("spine")) pc.items.push("Perform thoracic extension stretches every 30 min: clasp hands behind head, gently arch back over chair back.");
+  if (has("head")) pc.items.push("Adjust monitor or chair height. The head should be held naturally upright, not forced up or down to view the screen.");
+  if (pc.items.length === 0) pc.items.push("Maintain current posture habits. Continue with regular movement breaks.");
   recs.push(pc);
 
-  const bs = { categoria: "PAUSAS ACTIVAS Y MOVIMIENTO", items: [] };
-  bs.items.push("Aplicar la regla 20-20-20: cada 20 minutos, mirar un objeto a 6 metros de distancia durante 20 segundos.");
-  bs.items.push("Levantarse y caminar al menos 2 minutos cada 30 minutos de sedentarismo continuo.");
-  if (has("sed")) bs.items.push("PRIORIDAD: Implementar pausas de movimiento cada hora de forma inmediata. Considerar escritorio de pie o convertidor sit-stand.");
-  bs.items.push("Programar alarmas en el teléfono o computador para verificar la postura cada 15 minutos durante las primeras 2 semanas de corrección.");
+  const bs = { categoria: "ACTIVE BREAKS & MOVEMENT", items: [] };
+  bs.items.push("Follow the 20-20-20 rule: every 20 minutes, look at something 6 meters away for 20 seconds.");
+  bs.items.push("Stand and walk for at least 2 minutes every 30 minutes of continuous sitting.");
+  if (has("sed")) bs.items.push("PRIORITY: Implement hourly movement breaks immediately. Consider a sit-stand desk or converter.");
+  bs.items.push("Set phone/computer alarms to check posture every 15 minutes during the first 2 weeks of correction.");
   recs.push(bs);
 
-  const ex = { categoria: "EJERCICIOS RECOMENDADOS (Diario)", items: [] };
-  ex.items.push("Estiramientos de cuello: flexión lateral y rotación, 30 s por lado, 2 veces al día.");
-  ex.items.push("Apertura de pecho / estiramiento pectoral en marco de puerta, 30 s × 3 series.");
-  if (has("spine") || has("neck")) ex.items.push("Movilidad espinal tipo cat-cow: 10 repeticiones × 2 series, mañana y al salir del trabajo.");
-  ex.items.push("Compresión de escápulas: retraer omóplatos, mantener 5 s × 15 reps — contrarresta los hombros protruidos por el trabajo en teclado.");
+  const ex = { categoria: "RECOMMENDED EXERCISES (Daily)", items: [] };
+  ex.items.push("Neck stretches: lateral flexion and rotation, 30s each side, twice a day.");
+  ex.items.push("Chest opener / pectoral stretch in doorframe, 30s × 3 sets.");
+  if (has("spine") || has("neck")) ex.items.push("Cat-cow spinal mobility: 10 reps × 2 sets, morning and after work.");
+  ex.items.push("Shoulder blade squeezes: retract scapulae, hold 5s × 15 reps — counteracts protracted shoulders from keyboard work.");
   recs.push(ex);
 
   if (avgScore < 55 || rd.personsData.some(p => p.avgScore < 45)) {
-    const cr = { categoria: "RECOMENDACIÓN DE DERIVACIÓN CLÍNICA", items: [] };
-    cr.items.push("Una o más personas presentaron puntuaciones de RIESGO ALTO. Se recomienda derivación a médico ocupacional o ergónomo certificado.");
-    cr.items.push("Realizar evaluación formal de riesgo musculoesquelético (métodos REBA, RULA u OWAS) por un profesional calificado.");
-    cr.items.push("Considerar aplicar el Cuestionario Nórdico de síntomas musculoesqueléticos a los trabajadores afectados.");
+    const cr = { categoria: "CLINICAL REFERRAL RECOMMENDATION", items: [] };
+    cr.items.push("One or more individuals presented HIGH RISK scores. Referral to an occupational physician or certified ergonomist is strongly recommended.");
+    cr.items.push("A formal musculoskeletal risk assessment (REBA, RULA, or OWAS) should be performed by a qualified professional.");
+    cr.items.push("Consider administering the Nordic Musculoskeletal Questionnaire to affected workers.");
     recs.push(cr);
   }
   return recs;
@@ -1288,6 +1386,17 @@ function OverallGauge({ persons }) {
   );
 }
 
+const ISSUE_RECS = {
+  neck: "Retrain head neutral position. Ear should align vertically over shoulder.",
+  head: "Adjust monitor height — screen top should be at or slightly below eye level.",
+  spine: "Sit back and use lumbar support. Perform thoracic extension stretch every 30 min.",
+  sym: "Check keyboard/mouse placement. Level armrests to equalize shoulder height.",
+  tilt: "Level head position. Check for uneven armrests or monitor off-center.",
+  sed: "Stand and walk for 2 min every 30 min. Set movement break reminders.",
+  elbow: "Adjust armrests so elbows rest at 90-120°. Bring keyboard closer.",
+  knee: "Adjust seat height — thighs parallel to floor, feet flat on ground.",
+};
+
 function PersonCard({ person, idx }) {
   const pal = PALETTE[idx % PALETTE.length];
   const r = person.risk;
@@ -1297,7 +1406,7 @@ function PersonCard({ person, idx }) {
   else if (r.level === "moderate") ac = T.amber;
   return (
     <div style={{ background: pal.bg, border: `1px solid ${ac}44`, borderLeft: `3px solid ${ac}`, borderRadius: 10, padding: "10px 12px", transition: "all 0.4s ease" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
         <MiniRing score={r.score} color={ac} />
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -1313,22 +1422,38 @@ function PersonCard({ person, idx }) {
           </div>
         </div>
       </div>
-      {r.issues?.map(iss => (
-        <div key={iss.key} style={{ fontSize: 9, color: iss.sev === "high" ? T.red : T.amber, marginTop: 4, paddingLeft: 6, borderLeft: `2px solid ${iss.sev === "high" ? T.red : T.amber}` }}>
-          ⚠ {iss.label}{iss.val ? ` (${iss.val})` : ""}
+      {r.issues?.length > 0 && (
+        <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 5 }}>
+          {r.issues.map(iss => {
+            const ic = iss.sev === "high" ? T.red : T.amber;
+            const rec = ISSUE_RECS[iss.key];
+            return (
+              <div key={iss.key} style={{ padding: "5px 8px", background: `${ic}0e`, borderRadius: 6, borderLeft: `2px solid ${ic}` }}>
+                <div style={{ fontSize: 9, color: ic, fontWeight: 600 }}>⚠ {iss.label}{iss.val ? ` (${iss.val})` : ""}</div>
+                {rec && <div style={{ fontSize: 8, color: T.textSecondary, marginTop: 2, lineHeight: 1.4 }}>→ {rec}</div>}
+              </div>
+            );
+          })}
         </div>
-      ))}
+      )}
+      {!r.issues?.length && r.level === "excellent" && (
+        <div style={{ fontSize: 9, color: T.green, marginTop: 4, paddingLeft: 6 }}>✓ Excellent posture — keep it up!</div>
+      )}
     </div>
   );
 }
 
-function Toasts({ toasts }) {
+function Toasts({ toasts, onDismiss }) {
   return (
-    <div style={{ position: "fixed", top: 16, right: 16, display: "flex", flexDirection: "column", gap: 8, zIndex: 999, pointerEvents: "none" }}>
+    <div style={{ position: "fixed", top: 16, right: 16, display: "flex", flexDirection: "column", gap: 8, zIndex: 999 }}>
       {toasts.map(t => (
-        <div key={t.id} style={{ background: "rgba(8,8,16,0.95)", border: `1px solid ${t.color}44`, borderLeft: `3px solid ${t.color}`, borderRadius: 10, padding: "10px 14px", display: "flex", gap: 8, alignItems: "center", backdropFilter: "blur(20px)", maxWidth: 260, animation: "slideIn 0.3s ease" }}>
+        <div key={t.id} style={{ background: "rgba(8,8,16,0.95)", border: `1px solid ${t.color}44`, borderLeft: `3px solid ${t.color}`, borderRadius: 10, padding: "9px 12px 9px 14px", display: "flex", gap: 8, alignItems: "center", backdropFilter: "blur(20px)", maxWidth: 280, animation: "slideIn 0.3s ease", pointerEvents: "all" }}>
           <span style={{ fontSize: 14 }}>{t.icon}</span>
-          <div><div style={{ fontSize: 11, fontWeight: 700, color: t.color }}>{t.title}</div><div style={{ fontSize: 9, color: T.textSecondary, marginTop: 1 }}>{t.body}</div></div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: t.color }}>{t.title}</div>
+            <div style={{ fontSize: 9, color: T.textSecondary, marginTop: 1 }}>{t.body}</div>
+          </div>
+          <button onClick={() => onDismiss(t.id)} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, flexShrink: 0 }}>×</button>
         </div>
       ))}
     </div>
@@ -1349,14 +1474,14 @@ function SamplingPanel({ sampling, setSampling, samplingMin, setSamplingMin, ela
   if (!sampling) {
     return (
       <div style={{ padding: mob ? 14 : 14, borderBottom: `1px solid ${T.border}` }}>
-        <div style={{ fontSize: 9, color: T.textMuted, marginBottom: 8, letterSpacing: 1 }}>CONFIGURACIÓN DE SESIÓN</div>
+        <div style={{ fontSize: 9, color: T.textMuted, marginBottom: 8, letterSpacing: 1 }}>SESSION SETUP</div>
         <div style={{ display: "flex", flexDirection: "column", gap: mob ? 8 : 6 }}>
           <input value={operator} onChange={e => setOperator(e.target.value)}
-            placeholder="Nombre del operador" style={{ ...inputSt, fontSize: mob ? 12 : 10, padding: mob ? "9px 10px" : "6px 8px" }} />
+            placeholder="Operator name" style={{ ...inputSt, fontSize: mob ? 12 : 10, padding: mob ? "9px 10px" : "6px 8px" }} />
           <input value={location} onChange={e => setLocation(e.target.value)}
-            placeholder="Ubicación / Área" style={{ ...inputSt, fontSize: mob ? 12 : 10, padding: mob ? "9px 10px" : "6px 8px" }} />
+            placeholder="Location / Area" style={{ ...inputSt, fontSize: mob ? 12 : 10, padding: mob ? "9px 10px" : "6px 8px" }} />
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span style={{ fontSize: mob ? 11 : 9, color: T.textMuted, whiteSpace: "nowrap" }}>Duración (min):</span>
+            <span style={{ fontSize: mob ? 11 : 9, color: T.textMuted, whiteSpace: "nowrap" }}<>Duration (min):</span>
             {/* Usar buttons +/- en móvil para evitar teclado numérico problemático */}
             {mob ? (
               <div style={{ display: "flex", alignItems: "center", gap: 0, background: "rgba(255,255,255,0.04)", border: `1px solid ${T.border}`, borderRadius: 8, overflow: "hidden" }}>
@@ -1371,7 +1496,7 @@ function SamplingPanel({ sampling, setSampling, samplingMin, setSamplingMin, ela
             )}
           </div>
           <button onClick={() => setSampling(true)} style={{ padding: mob ? "12px" : "8px", background: "rgba(0,229,160,0.12)", border: `1px solid ${T.green}55`, borderRadius: 8, color: T.green, fontSize: mob ? 13 : 11, cursor: "pointer", fontFamily: "monospace", marginTop: 2, fontWeight: 600 }}>
-            ▶ INICIAR MUESTREO
+            ▶ START SAMPLING
           </button>
         </div>
       </div>
@@ -1381,7 +1506,7 @@ function SamplingPanel({ sampling, setSampling, samplingMin, setSamplingMin, ela
   return (
     <div style={{ padding: "10px 14px", borderBottom: `1px solid ${T.border}` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-        <span style={{ fontSize: 9, color: T.green, letterSpacing: 1, animation: "pulse 1.5s infinite" }}>● MUESTREANDO</span>
+        <span style={{ fontSize: 9, color: T.green, letterSpacing: 1, animation: "pulse 1.5s infinite" }}>● SAMPLING</span>
         <span style={{ fontSize: mob ? 14 : 11, fontFamily: "monospace", color: T.textPrimary, fontWeight: 700 }}>{fmt(remaining)}</span>
       </div>
       <div style={{ height: 5, background: "rgba(255,255,255,0.06)", borderRadius: 2, marginBottom: 8 }}>
@@ -1389,7 +1514,7 @@ function SamplingPanel({ sampling, setSampling, samplingMin, setSamplingMin, ela
       </div>
       <div style={{ display: "flex", gap: 6 }}>
         <button onClick={onFinish} style={{ flex: 1, padding: mob ? "11px" : "7px", background: "rgba(0,229,160,0.1)", border: `1px solid ${T.green}44`, borderRadius: 8, color: T.green, fontSize: mob ? 12 : 10, cursor: "pointer", fontWeight: 600 }}>
-          Finalizar y Exportar PDF
+          Finish & Export PDF
         </button>
         <button onClick={() => setSampling(false)} style={{ padding: mob ? "11px 14px" : "7px 10px", background: "rgba(255,75,110,0.1)", border: `1px solid ${T.red}44`, borderRadius: 8, color: T.red, fontSize: mob ? 12 : 10, cursor: "pointer" }}>✕</button>
       </div>
@@ -1406,6 +1531,7 @@ export default function App() {
   const [showTrails, setShowTrails] = useState(true);
   const [showHands, setShowHands] = useState(true);
   const [showFace, setShowFace] = useState(true);
+  const [showDist, setShowDist] = useState(true);
   const [viewMode, setViewMode] = useState("frontal");
   const [cameraError, setCameraError] = useState(null);
   const [displaySize, setDisplaySize] = useState({ w: 640, h: 480 });
@@ -1496,7 +1622,7 @@ export default function App() {
     samplingRef.current = false;
     const snaps = snapshotsRef.current;
     if (!snaps.length) {
-      setToasts(t => [...t, { id: Date.now(), icon: "ℹ️", title: "Sin datos", body: "No se recolectaron muestras — verifique que la cámara vea personas durante la sesión", color: T.amber }]);
+      setToasts(t => [...t, { id: Date.now(), icon: "ℹ️", title: "Sin datos", body: "No se recolectaron muestras — verifique que la cámara vea persons durante la sesión", color: T.amber }]);
       return;
     }
     const maxPersons = Math.max(...snaps.map(s => s.personsRisk.length), 1);
@@ -1599,7 +1725,7 @@ export default function App() {
       setCameraActive(true); setCameraError(null);
     } catch (e) {
       console.error("Camera error:", e);
-      setCameraError("No se pudo acceder a la cámara — verifica permisos");
+      setCameraError("Cannot access camera — check permissions");
     }
   };
 
@@ -1641,7 +1767,7 @@ export default function App() {
           <div style={{ width: 32, height: 32, borderRadius: 9, background: "linear-gradient(135deg,#7B61FF,#00E5A0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚡</div>
           <div>
             <div style={{ fontSize: 15, letterSpacing: 1, lineHeight: 1.2, fontWeight: 600 }}>ERGO<span style={{ color: T.green }}>.HSE</span></div>
-            <div style={{ fontSize: 9, color: T.textMuted }}>IA · {viewMode === "frontal" ? "FRONTAL" : "LATERAL"} · {cameraFacing === "environment" ? "Cámara trasera" : "Cámara frontal"}</div>
+            <div style={{ fontSize: 9, color: T.textMuted }}>IA · {viewMode === "frontal" ? "FRONTAL" : "LATERAL"} · {cameraFacing === "environment" ? "Rear Camera" : "Front Camera"}</div>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1650,7 +1776,7 @@ export default function App() {
             <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.green, animation: "pulse 1.5s infinite" }} />
             <span style={{ fontSize: 9, color: T.green, fontWeight: 600 }}>{persons.length} detect.</span>
           </div>}
-          {status === "loading" && <span style={{ fontSize: 9, color: T.amber, animation: "pulse 1s infinite" }}>Cargando IA...</span>}
+          {status === "loading" && <span style={{ fontSize: 9, color: T.amber, animation: "pulse 1s infinite" }}>Loading AI...</span>}
         </div>
       </header>
 
@@ -1668,23 +1794,23 @@ export default function App() {
               <div style={{ fontSize: 48 }}>📷</div>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 15, color: T.textSecondary, marginBottom: 6, fontWeight: 600 }}>ERGO.HSE</div>
-                <div style={{ fontSize: 11, color: T.textMuted }}>Evaluación ergonómica con IA</div>
-                <div style={{ fontSize: 10, color: T.textMuted, marginTop: 3 }}>Hasta 6 personas · Detección de postura</div>
+                <div style={{ fontSize: 11, color: T.textMuted }}>AI Ergonomic Assessment</div>
+                <div style={{ fontSize: 10, color: T.textMuted, marginTop: 3 }}>Up to 6 people · Posture detection</div>
               </div>
               <button onClick={() => startCamera()} style={{ padding: "16px 40px", background: "rgba(0,229,160,0.14)", border: `2px solid ${T.green}77`, borderRadius: 14, color: T.green, fontSize: 16, cursor: "pointer", fontFamily: "monospace", fontWeight: 600, boxShadow: `0 0 24px rgba(0,229,160,0.25)` }}>
-                Iniciar Cámara
+                Start Camera
               </button>
               {cameraError && <div style={{ fontSize: 11, color: T.red, textAlign: "center", maxWidth: 280, padding: "8px 12px", background: "rgba(255,75,110,0.08)", border: `1px solid ${T.red}44`, borderRadius: 8 }}>{cameraError}</div>}
             </div>
           )}
-          {isRunning && <OverlayCanvas persons={persons} handRes={handRes} faceRes={faceRes} W={displaySize.w} H={displaySize.h} showTrails={showTrails} showHands={showHands} showFace={showFace} />}
+          {isRunning && <OverlayCanvas persons={persons} handRes={handRes} faceRes={faceRes} W={displaySize.w} H={displaySize.h} showTrails={showTrails} showHands={showHands} showFace={showFace} showDist={showDist} />}
         </div>
 
         {/* Controles sobre el video */}
         {isRunning && (
           <>
             <div style={{ position: "absolute", top: 10, left: 10, zIndex: 10, padding: "4px 12px", background: "rgba(0,0,0,0.75)", borderRadius: 18, fontSize: 10, backdropFilter: "blur(8px)" }}>
-              {persons.length ? `✓ ${persons.length} detectado${persons.length > 1 ? "s" : ""}` : "Escaneando..."}
+              {persons.length ? `✓ ${persons.length} detected${persons.length > 1 ? "s" : ""}` : "Scanning..."}
             </div>
             <div style={{ position: "absolute", top: 10, right: 10, zIndex: 10, display: "flex", gap: 8 }}>
               {/* Flip cámara */}
@@ -1714,8 +1840,8 @@ export default function App() {
                   dominantBaseline="middle" transform="rotate(90 35 35)" fontFamily="monospace">/100</text>
               </svg>
               <div>
-                <div style={{ fontSize: 15, color, fontWeight: 700 }}>{avg >= 92 ? "Excelente" : avg >= 75 ? "Bueno" : avg >= 55 ? "Riesgo Mod." : "Riesgo Alto"}</div>
-                <div style={{ fontSize: 9, color: T.textMuted, marginTop: 2 }}>{persons.length} persona{persons.length > 1 ? "s" : ""} · {viewMode}</div>
+                <div style={{ fontSize: 15, color, fontWeight: 700 }}>{avg >= 92 ? "Excellent" : avg >= 75 ? "Bueno" : avg >= 55 ? "Moderate Risk" : "High Risk"}</div>
+                <div style={{ fontSize: 9, color: T.textMuted, marginTop: 2 }}>{persons.length} person{persons.length > 1 ? "s" : ""} · {viewMode}</div>
               </div>
             </div>
           );
@@ -1732,8 +1858,9 @@ export default function App() {
         <div style={{ width: 1, background: T.border, flexShrink: 0, margin: "4px 0" }} />
         {[
           { label: "Trail", on: showTrails, fn: () => setShowTrails(s => !s), color: T.blue },
-          { label: "Manos", on: showHands, fn: () => setShowHands(s => !s), color: T.green },
-          { label: "Cara", on: showFace, fn: () => setShowFace(s => !s), color: "#FF00CC" },
+          { label: "Hands", on: showHands, fn: () => setShowHands(s => !s), color: T.green },
+          { label: "Face", on: showFace, fn: () => setShowFace(s => !s), color: "#FF00CC" },
+          { label: "Dist", on: showDist, fn: () => setShowDist(s => !s), color: T.amber },
         ].map(b => (
           <button key={b.label} onClick={b.fn} style={{ padding: "10px 16px", borderRadius: 22, border: `1.5px solid ${b.on ? b.color + "99" : T.border}`, background: b.on ? `${b.color}18` : "rgba(255,255,255,0.03)", color: b.on ? b.color : T.textMuted, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "monospace", fontWeight: b.on ? 700 : 400 }}>
             {b.label}
@@ -1747,12 +1874,12 @@ export default function App() {
         {/* Personas detectadas */}
         {isRunning && persons.length > 0 && (
           <>
-            <div style={{ fontSize: 9, color: T.textMuted, letterSpacing: 1, fontWeight: 600 }}>ANÁLISIS INDIVIDUAL</div>
+            <div style={{ fontSize: 9, color: T.textMuted, letterSpacing: 1, fontWeight: 600 }}>INDIVIDUAL ANALYSIS</div>
             {persons.map((p, i) => <PersonCard key={i} person={p} idx={i} />)}
           </>
         )}
 
-        {/* Muestreo */}
+        {/* Sampling */}
         <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 14, overflow: "hidden" }}>
           <SamplingPanel
             sampling={sampling} setSampling={handleStartSampling}
@@ -1766,9 +1893,9 @@ export default function App() {
 
         {/* Umbrales HSE */}
         <div>
-          <div style={{ fontSize: 9, color: T.textMuted, letterSpacing: 1, marginBottom: 6 }}>UMBRALES HSE</div>
+          <div style={{ fontSize: 9, color: T.textMuted, letterSpacing: 1, marginBottom: 6 }}>HSE THRESHOLDS</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-            {[["92–100", "Excelente", T.green], ["75–91", "Bueno", T.green], ["55–74", "Moderado", T.amber], ["<55", "Riesgo Alto", T.red]].map(([r, l, c]) => (
+            {[["92–100", "Excellent", T.green], ["75–91", "Bueno", T.green], ["55–74", "Moderate", T.amber], ["<55", "High Risk", T.red]].map(([r, l, c]) => (
               <div key={r} style={{ fontSize: 10, display: "flex", justifyContent: "space-between", padding: "7px 10px", background: `${c}08`, border: `1px solid ${c}28`, borderRadius: 10 }}>
                 <span style={{ color: c, fontFamily: "monospace", fontWeight: 600 }}>{r}</span>
                 <span style={{ color: c + "cc" }}>{l}</span>
@@ -1779,11 +1906,11 @@ export default function App() {
 
         {!isRunning && (
           <div style={{ textAlign: "center", padding: "20px 0", color: T.textMuted, fontSize: 11 }}>
-            Inicia la cámara para comenzar el análisis
+            Start camera to begin analysis
           </div>
         )}
       </div>
-      <Toasts toasts={toasts} />
+      <Toasts toasts={toasts} onDismiss={(id) => setToasts(t => t.filter(x => x.id !== id))} />
     </div>
   );
 
@@ -1818,9 +1945,9 @@ export default function App() {
           {highRiskCount > 0 && <div style={{ padding: "2px 8px", background: "rgba(255,75,110,0.1)", border: `1px solid ${T.red}44`, borderRadius: 16, fontSize: 9, color: T.red, animation: "pulse 1.5s infinite" }}>⚠ {highRiskCount} ALTO</div>}
           {isRunning && <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 8px", background: "rgba(0,229,160,0.07)", border: `1px solid ${T.green}33`, borderRadius: 16 }}>
             <div style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, animation: "pulse 1.5s infinite" }} />
-            <span style={{ fontSize: 8, color: T.green }}>LIVE · {persons.length} detectado{persons.length !== 1 ? "s" : ""}</span>
+            <span style={{ fontSize: 8, color: T.green }}>LIVE · {persons.length} detected{persons.length !== 1 ? "s" : ""}</span>
           </div>}
-          {status === "loading" && <span style={{ fontSize: 8, color: T.amber, animation: "pulse 1s infinite" }}>Cargando IA...</span>}
+          {status === "loading" && <span style={{ fontSize: 8, color: T.amber, animation: "pulse 1s infinite" }}>Loading AI...</span>}
         </div>
       </header>
 
@@ -1838,30 +1965,31 @@ export default function App() {
                   <div style={{ fontSize: 32 }}>📷</div>
                   <div style={{ textAlign: "center" }}>
                     <div style={{ fontSize: 11, color: T.textSecondary }}>ERGO.HSE Ergonomic AI</div>
-                    <div style={{ fontSize: 9, color: T.textMuted, marginTop: 4 }}>MoveNet MultiPose · Hasta 6 personas · {viewMode === "lateral" ? "Vista lateral (recomendado)" : "Vista frontal"}</div>
+                    <div style={{ fontSize: 9, color: T.textMuted, marginTop: 4 }}>MoveNet MultiPose · Hasta 6 persons · {viewMode === "lateral" ? "Vista lateral (recomendado)" : "Vista frontal"}</div>
                   </div>
                   {viewMode === "lateral" && <div style={{ fontSize: 9, color: T.amber, background: "rgba(255,184,48,0.08)", border: `1px solid ${T.amber}33`, borderRadius: 8, padding: "6px 12px", maxWidth: 280, textAlign: "center" }}>
                     Modo lateral: posicionar cámara 30–45° de lado para máxima precisión
                   </div>}
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={startCamera} style={btnSt(T.green)}>Iniciar Cámara</button>
+                    <button onClick={startCamera} style={btnSt(T.green)}>Start Camera</button>
                   </div>
                   {cameraError && <div style={{ fontSize: 9, color: T.red, maxWidth: 240, textAlign: "center" }}>{cameraError}</div>}
                 </div>
               )}
-              {isRunning && <OverlayCanvas persons={persons} handRes={handRes} faceRes={faceRes} W={displaySize.w} H={displaySize.h} showTrails={showTrails} showHands={showHands} showFace={showFace} />}
+              {isRunning && <OverlayCanvas persons={persons} handRes={handRes} faceRes={faceRes} W={displaySize.w} H={displaySize.h} showTrails={showTrails} showHands={showHands} showFace={showFace} showDist={showDist} />}
             </div>
             {isRunning && (
               <>
                 <div style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}>
                   <div style={{ padding: "2px 8px", background: "rgba(0,0,0,0.75)", borderRadius: 16, border: `1px solid ${T.border}`, fontSize: 8, backdropFilter: "blur(8px)" }}>
-                    {status === "loading" ? "Cargando..." : persons.length ? `✓ ${persons.length} pose${persons.length > 1 ? "s" : ""}` : "Escaneando..."}
+                    {status === "loading" ? "Loading..." : persons.length ? `✓ ${persons.length} pose${persons.length > 1 ? "s" : ""}` : "Scanning..."}
                   </div>
                 </div>
                 <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 5, zIndex: 10 }}>
                   <Tog label="Trails" on={showTrails} onClick={() => setShowTrails(s => !s)} color={T.blue} />
-                  <Tog label="Manos" on={showHands} onClick={() => setShowHands(s => !s)} color={T.green} />
-                  <Tog label="Cara" on={showFace} onClick={() => setShowFace(s => !s)} color={T.pink} />
+                  <Tog label="Hands" on={showHands} onClick={() => setShowHands(s => !s)} color={T.green} />
+                  <Tog label="Face" on={showFace} onClick={() => setShowFace(s => !s)} color={T.pink} />
+                  <Tog label="Dist" on={showDist} onClick={() => setShowDist(s => !s)} color={T.amber} />
                   <button onClick={stopCamera} style={{ padding: "3px 8px", background: "rgba(255,75,110,0.15)", border: `1px solid ${T.red}44`, borderRadius: 16, color: T.red, fontSize: 9, cursor: "pointer" }}>✕</button>
                 </div>
               </>
@@ -1876,8 +2004,8 @@ export default function App() {
           {persons.length > 0 && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {persons.map((_, i) => { const p = PALETTE[i % PALETTE.length]; return <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 9px", background: p.bg, border: `1px solid ${p.stroke}33`, borderRadius: 16 }}><div style={{ width: 5, height: 5, borderRadius: "50%", background: p.stroke, boxShadow: `0 0 5px ${p.glow}` }} /><span style={{ fontSize: 9, color: p.stroke }}>{p.label}</span></div>; })}
-              {showHands && <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 9px", background: "rgba(0,229,160,0.06)", border: `1px solid ${T.green}33`, borderRadius: 16 }}><div style={{ width: 5, height: 5, borderRadius: "50%", background: T.green }} /><span style={{ fontSize: 9, color: T.green }}>Manos</span></div>}
-              {showFace && <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 9px", background: "rgba(255,0,204,0.06)", border: `1px solid ${T.pink}33`, borderRadius: 16 }}><div style={{ width: 5, height: 5, borderRadius: "50%", background: "#FF00CC" }} /><span style={{ fontSize: 9, color: "#FF00CC" }}>Cara</span></div>}
+              {showHands && <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 9px", background: "rgba(0,229,160,0.06)", border: `1px solid ${T.green}33`, borderRadius: 16 }}><div style={{ width: 5, height: 5, borderRadius: "50%", background: T.green }} /><span style={{ fontSize: 9, color: T.green }}>Hands</span></div>}
+              {showFace && <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 9px", background: "rgba(255,0,204,0.06)", border: `1px solid ${T.pink}33`, borderRadius: 16 }}><div style={{ width: 5, height: 5, borderRadius: "50%", background: "#FF00CC" }} /><span style={{ fontSize: 9, color: "#FF00CC" }}>Face</span></div>}
             </div>
           )}
         </div>
@@ -1888,9 +2016,9 @@ export default function App() {
           </div>
           <SamplingPanel sampling={sampling} setSampling={handleStartSampling} samplingMin={samplingMin} setSamplingMin={setSamplingMin} elapsed={elapsed} onFinish={handleFinishSampling} operator={operator} setOperator={setOperator} location={location} setLocation={setLocation} viewMode={viewMode} />
           <div style={{ padding: "8px 14px", borderBottom: `1px solid ${T.border}` }}>
-            <div style={{ fontSize: 8, color: T.textMuted, marginBottom: 6, letterSpacing: 1 }}>UMBRALES HSE</div>
+            <div style={{ fontSize: 8, color: T.textMuted, marginBottom: 6, letterSpacing: 1 }}>HSE THRESHOLDS</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
-              {[["92–100", "Excelente", T.green], ["75–91", "Bueno", T.green], ["55–74", "Moderado", T.amber], ["<55", "Riesgo Alto", T.red]].map(([r, l, c]) => (
+              {[["92–100", "Excellent", T.green], ["75–91", "Bueno", T.green], ["55–74", "Moderate", T.amber], ["<55", "High Risk", T.red]].map(([r, l, c]) => (
                 <div key={r} style={{ fontSize: 8, display: "flex", justifyContent: "space-between", padding: "3px 7px", background: `${c}08`, border: `1px solid ${c}22`, borderRadius: 5 }}>
                   <span style={{ color: c, fontFamily: "monospace" }}>{r}</span><span style={{ color: c + "99" }}>{l}</span>
                 </div>
@@ -1898,9 +2026,9 @@ export default function App() {
             </div>
           </div>
           <div style={{ flex: 1, overflow: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ fontSize: 8, color: T.textMuted, letterSpacing: 1 }}>ANÁLISIS INDIVIDUAL</div>
-            {!isRunning && <div style={{ color: T.textMuted, fontSize: 10, textAlign: "center", padding: "16px 0" }}>Sin sesión activa</div>}
-            {isRunning && !persons.length && <div style={{ color: T.textMuted, fontSize: 10, textAlign: "center", padding: "16px 0" }}>Escaneando...</div>}
+            <div style={{ fontSize: 8, color: T.textMuted, letterSpacing: 1 }}>INDIVIDUAL ANALYSIS</div>
+            {!isRunning && <div style={{ color: T.textMuted, fontSize: 10, textAlign: "center", padding: "16px 0" }}>No active session</div>}
+            {isRunning && !persons.length && <div style={{ color: T.textMuted, fontSize: 10, textAlign: "center", padding: "16px 0" }}>Scanning...</div>}
             {persons.map((p, i) => <PersonCard key={i} person={p} idx={i} />)}
           </div>
           <div style={{ padding: "6px 14px", borderTop: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between" }}>
@@ -1909,7 +2037,7 @@ export default function App() {
           </div>
         </div>
       </div>
-      <Toasts toasts={toasts} />
+      <Toasts toasts={toasts} onDismiss={(id) => setToasts(t => t.filter(x => x.id !== id))} />
     </div>
   );
 }
