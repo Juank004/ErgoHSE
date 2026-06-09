@@ -37,15 +37,28 @@ function analyzeFrontal(kps) {
     neck = vecAngle({ x: nose.x - mid.x, y: nose.y - mid.y }, { x: 0, y: -1 });
   }
 
-  // Head pitch: ear vs shoulder (frontal proxy for head up/down)
+  // ── FLEXIÓN CERVICAL (barbilla al pecho / cabeza arriba) ──
+  // Método principal: ángulo real del vector nariz→oído respecto a la vertical
+  // Cuando cabeza neutra: nariz está frente a orejas (mismo Y aprox)
+  // Cuando barbilla baja: nariz queda MÁS BAJA que orejas → ángulo positivo grande
   let headPitch = null;
+  let chinAngle = null;
+
+  const ear = lE || rE; // usar cualquier oído visible
+  if (nose && ear) {
+    // Vector desde oído hacia nariz
+    const vx = nose.x - ear.x;
+    const vy = nose.y - ear.y;
+    // Ángulo respecto a horizontal: 0°=cabeza neutra, +°=nariz abajo, -°=nariz arriba
+    const angleRad = Math.atan2(vy, Math.abs(vx) || 0.001);
+    chinAngle = angleRad * (180 / Math.PI); // grados: positivo=barbilla abajo, negativo=cabeza atrás
+  }
+
+  // Fallback sin oídos: usar nariz vs hombros
   if (lS && rS && nose) {
     const midS = { x: (lS.x + rS.x) / 2, y: (lS.y + rS.y) / 2 };
-    // If nose is significantly BELOW shoulder midpoint → head too down
-    // If nose is far ABOVE → head looking up (tilt)
-    const normDist = (midS.y - nose.y); // positive=nose above shoulders (normal)
-    const spanY = Math.abs(lS.y - lH?.y || 0.3);
-    headPitch = normDist; // raw normalized value
+    const shoulderSpan = Math.abs(lS.x - rS.x) || 0.2;
+    headPitch = (midS.y - nose.y) / shoulderSpan; // positivo=nariz sobre hombros (normal)
   }
 
   // Spine lean
@@ -65,7 +78,7 @@ function analyzeFrontal(kps) {
     lateralTilt = Math.abs(lE.y - rE.y) / Math.max(Math.abs(lE.x - rE.x), 0.01) * 100;
   }
 
-  return { mode: "frontal", neck, spine, sym, lateralTilt, headPitch, raw: { lS, rS, lH, rH, nose } };
+  return { mode: "frontal", neck, spine, sym, lateralTilt, headPitch, chinAngle, raw: { lS, rS, lH, rH, nose } };
 }
 
 // LATERAL MODE analysis — more accurate for neck/spine
@@ -92,7 +105,24 @@ function analyzeLateral(kps) {
     headTilt = (ear.y - nose.y) * 100; // positive = nose above ear (head tilted back)
   }
 
-  return { mode: "lateral", neckForward, kyphosis, headTilt, raw: { nose, ear, shoulder, hip } };
+  // Codo y rodilla en vista lateral
+  let elbowAngle = null, kneeAngle = null;
+  const lEl = kps.find?.(() => false) || kps[7] || kps[8];
+  const lWr = kps[9] || kps[10];
+  const lKn = kps[13] || kps[14];
+  const lAn = kps[15] || kps[16];
+  const sh2 = shoulder;
+
+  function ang3(A, B, C) {
+    if (!A || !B || !C) return null;
+    const v1 = { x: A.x - B.x, y: A.y - B.y }, v2 = { x: C.x - B.x, y: C.y - B.y };
+    const d = v1.x * v2.x + v1.y * v2.y, m = Math.sqrt(v1.x ** 2 + v1.y ** 2) * Math.sqrt(v2.x ** 2 + v2.y ** 2);
+    return m ? Math.acos(Math.max(-1, Math.min(1, d / m))) * 180 / Math.PI : null;
+  }
+  if (sh2 && lEl?.score > 0.25 && lWr?.score > 0.25) elbowAngle = ang3(sh2, lEl, lWr);
+  if (hip && lKn?.score > 0.25 && lAn?.score > 0.25) kneeAngle = ang3(hip, lKn, lAn);
+
+  return { mode: "lateral", neckForward, kyphosis, headTilt, elbowAngle, kneeAngle, raw: { nose, ear, shoulder, hip } };
 }
 
 // RISK SCORING — both modes, HSE weighted
@@ -102,20 +132,36 @@ function calcRisk(posture, sedMs = 0) {
   const issues = [];
 
   if (posture.mode === "frontal") {
-    const { neck, spine, sym, lateralTilt, headPitch } = posture;
+    const { neck, spine, sym, lateralTilt, headPitch, chinAngle } = posture;
     // Neck
     if (neck !== null) {
       if (neck < 10) neckScore = 30;
       else if (neck < 18) { neckScore = 24; }
-      else if (neck < 28) { neckScore = 15; issues.push({ key: "neck", label: "Forward neck", val: `${neck.toFixed(0)}°`, sev: "moderate" }); }
-      else { neckScore = 5; issues.push({ key: "neck", label: "Severe forward neck", val: `${neck.toFixed(0)}°`, sev: "high" }); }
+      else if (neck < 28) { neckScore = 15; issues.push({ key: "neck", label: "Cuello adelantado", val: `${neck.toFixed(0)}°`, sev: "moderate" }); }
+      else { neckScore = 5; issues.push({ key: "neck", label: "Cuello muy adelantado", val: `${neck.toFixed(0)}°`, sev: "high" }); }
     }
-    // Head pitch (up/down in frontal)
-    if (headPitch !== null) {
-      // headPitch is normalized Y distance (shoulder-nose)
-      if (headPitch < 0.04) { headScore = 5; issues.push({ key: "head", label: "Head too low (chin down)", val: "", sev: "high" }); }
-      else if (headPitch < 0.08) { headScore = 10; issues.push({ key: "head", label: "Head slightly down", val: "", sev: "moderate" }); }
-      else if (headPitch > 0.35) { headScore = 8; issues.push({ key: "head", label: "Head too far back", val: "", sev: "moderate" }); }
+    // Head pitch — flexion cervical con angulo real atan2 (nose-ear vector)
+    // +90°=nariz apuntando al suelo (barbilla al pecho), 0°=neutral, -90°=cabeza atras
+    if (chinAngle !== null && chinAngle !== undefined) {
+      if (chinAngle > 55) {
+        headScore = 2;
+        issues.push({ key: "head", label: "Flexion cervical severa (barbilla al pecho)", val: `${chinAngle.toFixed(0)}°`, sev: "high" });
+      } else if (chinAngle > 35) {
+        headScore = 6;
+        issues.push({ key: "head", label: "Cabeza muy agachada", val: `${chinAngle.toFixed(0)}°`, sev: "high" });
+      } else if (chinAngle > 18) {
+        headScore = 10;
+        issues.push({ key: "head", label: "Cabeza ligeramente flexionada", val: `${chinAngle.toFixed(0)}°`, sev: "moderate" });
+      } else if (chinAngle < -25) {
+        headScore = 7;
+        issues.push({ key: "head", label: "Cabeza extendida hacia atras", val: `${Math.abs(chinAngle).toFixed(0)}°`, sev: "moderate" });
+      } else {
+        headScore = 15;
+      }
+    } else if (headPitch !== null) {
+      if (headPitch < 0.3) { headScore = 5; issues.push({ key: "head", label: "Cabeza muy inclinada hacia abajo", val: "", sev: "high" }); }
+      else if (headPitch < 0.55) { headScore = 10; issues.push({ key: "head", label: "Cabeza ligeramente agachada", val: "", sev: "moderate" }); }
+      else if (headPitch > 1.4) { headScore = 8; issues.push({ key: "head", label: "Cabeza extendida hacia atras", val: "", sev: "moderate" }); }
       else headScore = 15;
     }
     // Spine
@@ -154,11 +200,13 @@ function calcRisk(posture, sedMs = 0) {
       else if (kyphosis < 30) { spineScore = 14; issues.push({ key: "spine", label: "Thoracic kyphosis", val: `${kyphosis.toFixed(0)}°`, sev: "moderate" }); }
       else { spineScore = 4; issues.push({ key: "spine", label: "Severe kyphosis", val: `${kyphosis.toFixed(0)}°`, sev: "high" }); }
     }
-    // Head tilt (up/down lateral)
+    // Head tilt (up/down lateral) — también detecta barbilla al pecho
     if (headTilt !== null) {
-      if (headTilt < -8) { headScore = 5; issues.push({ key: "head", label: "Head too far down", val: "", sev: "high" }); }
-      else if (headTilt < -3) { headScore = 10; issues.push({ key: "head", label: "Head slightly flexed", val: "", sev: "moderate" }); }
-      else if (headTilt > 15) { headScore = 8; issues.push({ key: "head", label: "Head extended back", val: "", sev: "moderate" }); }
+      // headTilt = (ear.y - nose.y)*100: negativo = nariz MÁS BAJA que oído = barbilla abajo
+      if (headTilt < -25) { headScore = 2; issues.push({ key: "head", label: "Flexión cervical severa (barbilla al pecho)", val: `~${Math.abs(Math.round(headTilt))}u`, sev: "high" }); }
+      else if (headTilt < -10) { headScore = 7; issues.push({ key: "head", label: "Cabeza muy agachada", val: "", sev: "high" }); }
+      else if (headTilt < -4) { headScore = 10; issues.push({ key: "head", label: "Cabeza ligeramente flexionada", val: "", sev: "moderate" }); }
+      else if (headTilt > 18) { headScore = 8; issues.push({ key: "head", label: "Cabeza extendida hacia atrás", val: "", sev: "moderate" }); }
       else { headScore = 15; }
     }
     symScore = 12; // not measurable from lateral
@@ -169,6 +217,23 @@ function calcRisk(posture, sedMs = 0) {
   if (sedMin > 90) { sedScore = 3; issues.push({ key: "sed", label: "Extended sitting >90min", val: `${Math.floor(sedMin)}min`, sev: "high" }); }
   else if (sedMin > 60) { sedScore = 8; }
   else if (sedMin > 30) { sedScore = 12; }
+
+  // Ángulos articulares adicionales (lateral)
+  let elbowScore = 0, kneeScore = 0;
+  if (posture.mode === "lateral") {
+    // Codo (shoulder→elbow→wrist)
+    const { elbowAngle, kneeAngle } = posture;
+    if (elbowAngle != null) {
+      if (elbowAngle >= 80 && elbowAngle <= 120) elbowScore = 5;
+      else if (elbowAngle >= 70 && elbowAngle <= 130) elbowScore = 3;
+      else { elbowScore = 1; issues.push({ key: "elbow", label: "Angulo de codo fuera de rango", val: `${elbowAngle.toFixed(0)}°`, sev: "moderate" }); }
+    }
+    if (kneeAngle != null) {
+      if (kneeAngle >= 80 && kneeAngle <= 120) kneeScore = 5;
+      else if (kneeAngle >= 70 && kneeAngle <= 130) kneeScore = 3;
+      else { kneeScore = 1; issues.push({ key: "knee", label: "Angulo de rodilla fuera de rango", val: `${kneeAngle.toFixed(0)}°`, sev: "moderate" }); }
+    }
+  }
 
   const total = Math.min(100, neckScore + spineScore + symScore + headScore + sedScore);
   let level, label, color;
@@ -190,8 +255,65 @@ function loadScript(src) {
 
 // ─── VISION HOOK (throttled + hands + face) ───────────────────────────────────
 const HAND_CONNECTIONS = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [0, 9], [9, 10], [10, 11], [11, 12], [0, 13], [13, 14], [14, 15], [15, 16], [0, 17], [17, 18], [18, 19], [19, 20], [5, 9], [9, 13], [13, 17]];
-const FACE_OVAL = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109, 10];
-const FACE_KEY_PTS = [1, 4, 6, 168, 8, 9, 10, 152, 234, 454, 33, 263, 133, 362, 61, 291, 13, 14];
+
+// ── Face mesh triangulation (MediaPipe 468 pts — conexiones del mesh completo, subset optimizado) ──
+const FACE_MESH_EDGES = [
+  // Óvalo exterior
+  [10, 338], [338, 297], [297, 332], [332, 284], [284, 251], [251, 389], [389, 356], [356, 454], [454, 323], [323, 361], [361, 288], [288, 397], [397, 365], [365, 379], [379, 378], [378, 400], [400, 377], [377, 152], [152, 148], [148, 176], [176, 149], [149, 150], [150, 136], [136, 172], [172, 58], [58, 132], [132, 93], [93, 234], [234, 127], [127, 162], [162, 21], [21, 54], [54, 103], [103, 67], [67, 109], [109, 10],
+  // Nariz
+  [1, 2], [2, 98], [98, 97], [97, 2], [1, 4], [4, 5], [5, 195], [195, 197], [197, 6], [6, 168], [168, 8], [8, 9], [9, 10], [4, 45], [45, 220], [220, 115], [115, 48], [48, 64], [64, 98], [4, 275], [275, 440], [440, 344], [344, 278], [278, 294], [294, 327], [327, 2],
+  // Ojo izquierdo
+  [33, 7], [7, 163], [163, 144], [144, 145], [145, 153], [153, 154], [154, 155], [155, 133], [33, 246], [246, 161], [161, 160], [160, 159], [159, 158], [158, 157], [157, 173], [173, 133],
+  // Ojo derecho
+  [362, 382], [382, 381], [381, 380], [380, 374], [374, 373], [373, 390], [390, 249], [249, 263], [362, 398], [398, 384], [384, 385], [385, 386], [386, 387], [387, 388], [388, 466], [466, 263],
+  // Labios exterior
+  [61, 185], [185, 40], [40, 39], [39, 37], [37, 0], [0, 267], [267, 269], [269, 270], [270, 409], [409, 291], [61, 146], [146, 91], [91, 181], [181, 84], [84, 17], [17, 314], [314, 405], [405, 321], [321, 375], [375, 291],
+  // Labios interior
+  [78, 191], [191, 80], [80, 81], [81, 82], [82, 13], [13, 312], [312, 311], [311, 310], [310, 415], [415, 308], [78, 95], [95, 88], [88, 178], [178, 87], [87, 14], [14, 317], [317, 402], [402, 318], [318, 324], [324, 308],
+  // Cejas
+  [70, 63], [63, 105], [105, 66], [66, 107], [107, 55], [55, 65], [65, 52], [52, 53], [53, 46], [46, 124], [124, 35], [35, 31], [31, 228], [228, 229], [229, 230], [230, 231], [231, 232], [232, 233], [233, 244], [244, 189],
+  [300, 293], [293, 334], [334, 296], [296, 336], [336, 285], [285, 295], [295, 282], [282, 283], [283, 276], [276, 353], [353, 265], [265, 261], [261, 448], [448, 449], [449, 450], [450, 451], [451, 452], [452, 453], [453, 464], [464, 413],
+  // Triángulos mejillas
+  [234, 93], [93, 227], [227, 116], [116, 117], [117, 118], [118, 119], [119, 120], [120, 121], [121, 128], [128, 234],
+  [454, 323], [323, 447], [447, 345], [345, 346], [346, 347], [347, 348], [348, 349], [349, 350], [350, 451], [451, 454],
+  // Frente
+  [10, 151], [151, 9], [9, 8], [8, 168], [168, 6], [10, 107], [10, 336], [336, 9],
+];
+
+// Ángulo entre 3 puntos (en grados)
+function angleBetween3(A, B, C) {
+  const v1 = { x: A.x - B.x, y: A.y - B.y };
+  const v2 = { x: C.x - B.x, y: C.y - B.y };
+  const dot = v1.x * v2.x + v1.y * v2.y;
+  const m = Math.sqrt(v1.x ** 2 + v1.y ** 2) * Math.sqrt(v2.x ** 2 + v2.y ** 2);
+  if (!m) return 0;
+  return Math.acos(Math.max(-1, Math.min(1, dot / m))) * (180 / Math.PI);
+}
+
+// Dibuja línea con ángulo estilo imagen 2
+function drawAngleLine(ctx, A, B, C, label, color, cW, cH) {
+  if (!A || !B || !C) return;
+  const ax = A.x * cW, ay = A.y * cH;
+  const bx = B.x * cW, by = B.y * cH;
+  const cx2 = C.x * cW, cy2 = C.y * cH;
+  const angle = angleBetween3(A, B, C);
+  ctx.shadowColor = color + "88"; ctx.shadowBlur = 10;
+  ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(cx2, cy2); ctx.stroke();
+  // Punto en la articulación
+  ctx.beginPath(); ctx.arc(bx, by, 5, 0, Math.PI * 2);
+  ctx.fillStyle = color; ctx.shadowBlur = 16; ctx.fill();
+  ctx.beginPath(); ctx.arc(bx, by, 2.5, 0, Math.PI * 2);
+  ctx.fillStyle = "#fff"; ctx.shadowBlur = 0; ctx.fill();
+  // Etiqueta ángulo
+  ctx.font = "bold 13px 'DM Mono',monospace";
+  ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 8;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(`${Math.round(angle)}°`, bx + 16, by - 14);
+  ctx.shadowBlur = 0;
+  return angle;
+}
 
 function useVision({ videoRef, active, viewMode, enableHands, enableFace }) {
   const [persons, setPersons] = useState([]);
@@ -203,7 +325,7 @@ function useVision({ videoRef, active, viewMode, enableHands, enableFace }) {
   const faceRef = useRef(null);
   const rafRef = useRef(null);
   const lastRunRef = useRef(0);
-  const THROTTLE_MS = 80;
+  const THROTTLE_MS = typeof window !== "undefined" && window.innerWidth <= 768 ? 150 : 80;
 
   useEffect(() => {
     if (!active) return;
@@ -310,11 +432,32 @@ function useVision({ videoRef, active, viewMode, enableHands, enableFace }) {
 function OverlayCanvas({ persons, handRes, faceRes, W, H, showTrails, showHands, showFace }) {
   const ref = useRef(null);
   const trails = useRef([]);
+  // Track actual canvas display size for correct face/hand scaling
+  const sizeRef = useRef({ w: W, h: H });
+
+  useEffect(() => {
+    const canvas = ref.current; if (!canvas) return;
+    const ro = new ResizeObserver(entries => {
+      for (const e of entries) {
+        const { width, height } = e.contentRect;
+        if (width > 0 && height > 0) {
+          sizeRef.current = { w: width, h: height };
+          canvas.width = width;
+          canvas.height = height;
+        }
+      }
+    });
+    ro.observe(canvas);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     const c = ref.current; if (!c) return;
     const ctx = c.getContext("2d");
-    ctx.clearRect(0, 0, W, H);
+    // Use actual canvas pixel size for correct scaling
+    const cW = c.width || W || 640;
+    const cH = c.height || H || 480;
+    ctx.clearRect(0, 0, cW, cH);
     const now = Date.now();
 
     // ── BODY ──
@@ -326,6 +469,12 @@ function OverlayCanvas({ persons, handRes, faceRes, W, H, showTrails, showHands,
         if (risk?.level === "high") { stroke = T.red; glow = "rgba(255,75,110,0.7)"; }
         else if (risk?.level === "moderate") { stroke = T.amber; glow = "rgba(255,184,48,0.6)"; }
         const kps = p.keypoints;
+
+        // Declarar referencias a landmarks clave UNA SOLA VEZ al inicio
+        const lS = kps[KP.lS], rS = kps[KP.rS];
+        const lHip = kps[KP.lH], rHip = kps[KP.rH];
+
+        // ── Trail ──
         if (showTrails && kps[0]?.score > 0.3) {
           if (!trails.current[idx]) trails.current[idx] = [];
           trails.current[idx].push({ x: kps[0].x, y: kps[0].y, t: now });
@@ -337,6 +486,8 @@ function OverlayCanvas({ persons, handRes, faceRes, W, H, showTrails, showHands,
             ctx.lineWidth = 2.5; ctx.shadowColor = glow; ctx.shadowBlur = 8; ctx.stroke();
           }
         }
+
+        // ── Conexiones skeleton ──
         ctx.shadowColor = glow; ctx.shadowBlur = 20; ctx.strokeStyle = stroke; ctx.lineWidth = 2.5; ctx.lineCap = "round";
         CONNECTIONS.forEach(([i, j]) => {
           const a = kps[i], b = kps[j];
@@ -344,23 +495,53 @@ function OverlayCanvas({ persons, handRes, faceRes, W, H, showTrails, showHands,
           ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
         });
 
-        // Columna vertebral: línea desde mid-hombros → mid-caderas (visible en frontal)
-        const lSk = kps[KP.lS], rSk = kps[KP.rS], lHk = kps[KP.lH], rHk = kps[KP.rH];
-        if (lSk?.score > 0.25 && rSk?.score > 0.25 && lHk?.score > 0.25 && rHk?.score > 0.25) {
-          const mShX = (lSk.x + rSk.x) / 2, mShY = (lSk.y + rSk.y) / 2;
-          const mHiX = (lHk.x + rHk.x) / 2, mHiY = (lHk.y + rHk.y) / 2;
-          // Estilo especial columna — línea punteada sutil
-          ctx.setLineDash && ctx.setLineDash([4, 3]);
-          ctx.shadowColor = glow; ctx.shadowBlur = 10; ctx.strokeStyle = stroke + "99"; ctx.lineWidth = 1.5;
+        // ── Línea hombros con ángulo de inclinación ──
+        if (lS?.score > 0.25 && rS?.score > 0.25) {
+          // Ángulo de inclinación: 0° = hombros nivelados
+          // Usamos diferencia de Y normalizada por distancia horizontal
+          const dx = rS.x - lS.x, dy = rS.y - lS.y;
+          const shAngle = Math.atan2(dy, Math.abs(dx) || 0.001) * (180 / Math.PI);
+          const absA = Math.abs(shAngle);
+          const lc = absA < 2 ? T.green : absA < 5 ? T.amber : T.red;
+          ctx.shadowColor = lc + "88"; ctx.shadowBlur = 8;
+          ctx.strokeStyle = lc; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+          ctx.beginPath(); ctx.moveTo(lS.x, lS.y); ctx.lineTo(rS.x, rS.y); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = lc; ctx.font = "bold 10px 'DM Mono',monospace";
+          ctx.textAlign = "center"; ctx.shadowBlur = 0;
+          ctx.fillText(`${shAngle >= 0 ? "+" : ""}${shAngle.toFixed(1)}°`, (lS.x + rS.x) / 2, Math.min(lS.y, rS.y) - 8);
+        }
+
+        // ── Columna + puntos tronco ──
+        if (lS?.score > 0.25 && rS?.score > 0.25 && lHip?.score > 0.25 && rHip?.score > 0.25) {
+          const mShX = (lS.x + rS.x) / 2, mShY = (lS.y + rS.y) / 2;
+          const mHiX = (lHip.x + rHip.x) / 2, mHiY = (lHip.y + rHip.y) / 2;
+          // Línea columna punteada
+          ctx.setLineDash([4, 3]);
+          ctx.strokeStyle = stroke + "99"; ctx.lineWidth = 1.5; ctx.shadowColor = glow; ctx.shadowBlur = 10;
           ctx.beginPath(); ctx.moveTo(mShX, mShY); ctx.lineTo(mHiX, mHiY); ctx.stroke();
-          ctx.setLineDash && ctx.setLineDash([]);
-          // Puntos vertebrales intermedios
-          for (let s = 0.25; s <= 0.75; s += 0.25) {
-            const vx = mShX + (mHiX - mShX) * s, vy = mShY + (mHiY - mShY) * s;
-            ctx.beginPath(); ctx.arc(vx, vy, 2.5, 0, Math.PI * 2);
+          ctx.setLineDash([]);
+          // Puntos vertebrales
+          [0.25, 0.5, 0.75].forEach(t => {
+            ctx.beginPath(); ctx.arc(mShX + (mHiX - mShX) * t, mShY + (mHiY - mShY) * t, 2.5, 0, Math.PI * 2);
             ctx.fillStyle = stroke + "bb"; ctx.shadowBlur = 14; ctx.fill();
+          });
+          // Puntos tronco al frente (pecho, abdomen)
+          [0.2, 0.5, 0.8].forEach(t => {
+            ctx.beginPath(); ctx.arc(mShX + (mHiX - mShX) * t, mShY + (mHiY - mShY) * t, 3.5, 0, Math.PI * 2);
+            ctx.fillStyle = stroke + "cc"; ctx.shadowBlur = 12; ctx.fill();
+          });
+          // Ángulo inclinación lateral tronco
+          const trunkAngle = Math.atan2(mHiX - mShX, mHiY - mShY) * (180 / Math.PI);
+          if (Math.abs(trunkAngle) > 3) {
+            const tc = Math.abs(trunkAngle) < 8 ? T.amber : T.red;
+            ctx.fillStyle = tc; ctx.font = "bold 10px 'DM Mono',monospace";
+            ctx.textAlign = "center"; ctx.shadowBlur = 0;
+            ctx.fillText(`tronco ${trunkAngle > 0 ? "+" : ""}${trunkAngle.toFixed(1)}°`, mShX, mShY - 14);
           }
         }
+
+        // ── Joints ──
         kps.forEach((kp, ki) => {
           if (!kp || kp.score < 0.25) return;
           const r = ki === 0 ? 8 : [KP.lS, KP.rS, KP.lH, KP.rH].includes(ki) ? 6 : 3.5;
@@ -368,12 +549,15 @@ function OverlayCanvas({ persons, handRes, faceRes, W, H, showTrails, showHands,
           ctx.beginPath(); ctx.arc(kp.x, kp.y, r, 0, Math.PI * 2); ctx.fillStyle = stroke; ctx.fill();
           ctx.beginPath(); ctx.arc(kp.x, kp.y, r * 0.45, 0, Math.PI * 2); ctx.fillStyle = "#ffffff99"; ctx.fill();
         });
+
+        // ── Pulso sobre nariz ──
         if (kps[0]?.score > 0.3) {
           const pr = 14 + Math.sin(now / 600 + idx) * 6;
           ctx.beginPath(); ctx.arc(kps[0].x, kps[0].y, pr, 0, Math.PI * 2);
           ctx.strokeStyle = stroke + "55"; ctx.lineWidth = 1.5; ctx.shadowBlur = 12; ctx.stroke();
         }
-        const lS = kps[KP.lS], rS = kps[KP.rS];
+
+        // ── Badge nombre + score ──
         if (lS?.score > 0.25 && rS?.score > 0.25) {
           const cx = (lS.x + rS.x) / 2, cy = Math.min(lS.y, rS.y) - 30;
           ctx.shadowBlur = 0;
@@ -383,7 +567,15 @@ function OverlayCanvas({ persons, handRes, faceRes, W, H, showTrails, showHands,
           ctx.textAlign = "center"; ctx.textBaseline = "middle";
           ctx.fillText(`${pal.label} ${risk?.score ?? "-"}`, cx, cy);
         }
-        if (risk?.issues?.length && kps[0]?.score > 0.3) {
+
+        // ── Ángulo de cabeza y alerta ──
+        if (kps[0]?.score > 0.3 && risk?.issues?.length) {
+          const headIss = risk.issues.find(ii => ii.key === "head");
+          if (headIss?.val) {
+            ctx.fillStyle = (headIss.sev === "high" ? T.red : T.amber) + "ee";
+            ctx.font = "bold 11px 'DM Mono',monospace"; ctx.textAlign = "center"; ctx.shadowBlur = 0;
+            ctx.fillText(headIss.val, kps[0].x, kps[0].y - 76);
+          }
           const iss = risk.issues[0];
           ctx.fillStyle = (iss.sev === "high" ? T.red : T.amber) + "cc";
           ctx.font = "10px 'DM Mono',monospace"; ctx.textAlign = "center"; ctx.shadowBlur = 0;
@@ -402,39 +594,115 @@ function OverlayCanvas({ persons, handRes, faceRes, W, H, showTrails, showHands,
         ctx.shadowColor = hGlow; ctx.shadowBlur = 18; ctx.strokeStyle = hColor; ctx.lineWidth = 2.2; ctx.lineCap = "round";
         HAND_CONNECTIONS.forEach(([i, j]) => {
           const a = hand[i], b = hand[j]; if (!a || !b) return;
-          ctx.beginPath(); ctx.moveTo(a.x * W, a.y * H); ctx.lineTo(b.x * W, b.y * H); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(a.x * cW, a.y * cH); ctx.lineTo(b.x * cW, b.y * cH); ctx.stroke();
         });
         hand.forEach((lm, li) => {
           const isTip = [4, 8, 12, 16, 20].includes(li);
-          ctx.beginPath(); ctx.arc(lm.x * W, lm.y * H, isTip ? 5 : 3, 0, Math.PI * 2);
+          ctx.beginPath(); ctx.arc(lm.x * cW, lm.y * cH, isTip ? 5 : 3, 0, Math.PI * 2);
           ctx.fillStyle = isTip ? "#FF4B6E" : hColor;
           ctx.shadowColor = isTip ? "rgba(255,75,110,0.8)" : hGlow; ctx.shadowBlur = 20; ctx.fill();
-          ctx.beginPath(); ctx.arc(lm.x * W, lm.y * H, isTip ? 2.5 : 1.5, 0, Math.PI * 2);
+          ctx.beginPath(); ctx.arc(lm.x * cW, lm.y * cH, isTip ? 2.5 : 1.5, 0, Math.PI * 2);
           ctx.fillStyle = "#ffffffcc"; ctx.fill();
         });
         ctx.shadowBlur = 0;
       });
     }
 
-    // ── FACE MESH ──
+    // ── FACE MESH — triangulación completa estilo MediaPipe ──
     if (showFace && faceRes?.multiFaceLandmarks) {
       faceRes.multiFaceLandmarks.forEach(face => {
-        ctx.shadowColor = "rgba(255,0,180,0.8)"; ctx.shadowBlur = 18;
-        ctx.strokeStyle = "#FF00CC"; ctx.lineWidth = 2;
+        if (!face || face.length < 400) return;
+        // Dibujar todas las conexiones del mesh — líneas muy finas semitransparentes
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = "rgba(0,229,160,0.28)"; ctx.lineWidth = 0.7; ctx.lineCap = "round";
+        FACE_MESH_EDGES.forEach(([i, j]) => {
+          const a = face[i], b = face[j]; if (!a || !b) return;
+          ctx.beginPath(); ctx.moveTo(a.x * cW, a.y * cH); ctx.lineTo(b.x * cW, b.y * cH); ctx.stroke();
+        });
+        // Contorno exterior más visible
+        ctx.strokeStyle = "rgba(0,229,160,0.7)"; ctx.lineWidth = 1.4; ctx.shadowColor = "rgba(0,229,160,0.5)"; ctx.shadowBlur = 6;
+        const OVAL = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109, 10];
         ctx.beginPath();
-        FACE_OVAL.forEach((idx, i) => {
-          const lm = face[idx]; if (!lm) return;
-          i === 0 ? ctx.moveTo(lm.x * W, lm.y * H) : ctx.lineTo(lm.x * W, lm.y * H);
+        let ovStarted = false;
+        OVAL.forEach(fi => {
+          const lm = face[fi]; if (!lm) return;
+          ovStarted ? ctx.lineTo(lm.x * cW, lm.y * cH) : ctx.moveTo(lm.x * cW, lm.y * cH);
+          ovStarted = true;
         });
         ctx.closePath(); ctx.stroke();
-        FACE_KEY_PTS.forEach(idx => {
-          const lm = face[idx]; if (!lm) return;
-          ctx.beginPath(); ctx.arc(lm.x * W, lm.y * H, 2.5, 0, Math.PI * 2);
-          ctx.fillStyle = "#FF00CC"; ctx.shadowColor = "rgba(255,0,200,0.9)"; ctx.shadowBlur = 12; ctx.fill();
-          ctx.beginPath(); ctx.arc(lm.x * W, lm.y * H, 1, 0, Math.PI * 2);
-          ctx.fillStyle = "#ffffff"; ctx.fill();
+        // Puntos nodales en intersecciones clave (ojos, nariz, boca, mentón)
+        [1, 4, 33, 133, 362, 263, 61, 291, 13, 14, 152, 10, 234, 454, 70, 300].forEach(fi => {
+          const lm = face[fi]; if (!lm) return;
+          ctx.beginPath(); ctx.arc(lm.x * cW, lm.y * cH, 2, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(0,229,160,0.9)"; ctx.shadowColor = "rgba(0,229,160,0.8)"; ctx.shadowBlur = 8; ctx.fill();
         });
         ctx.shadowBlur = 0;
+      });
+    }
+
+    // ── ÁNGULOS ARTICULARES LATERALES (imagen 2 + imagen 3) ──
+    // Solo en modo lateral O cuando los landmarks de cadera son visibles
+    if (persons?.length) {
+      persons.forEach((p) => {
+        const kps = p.keypoints;
+        const get = (i) => kps[i]?.score > 0.3 ? { x: kps[i].x / cW, y: kps[i].y / cH } : null;
+        // Normalizar a 0-1 para usar drawAngleLine
+        const norm = (i) => kps[i]?.score > 0.3 ? { x: kps[i].x / cW, y: kps[i].y / cH } : null;
+
+        const nose = norm(0);
+        const lEar = norm(3), rEar = norm(4);
+        const lSh = norm(5), rSh = norm(6);
+        const lEl = norm(7), rEl = norm(8);
+        const lWr = norm(9), rWr = norm(10);
+        const lHip = norm(11), rHip = norm(12);
+        const lKn = norm(13), rKn = norm(14);
+        const lAn = norm(15), rAn = norm(16);
+
+        // Detectar si vista es más lateral (un lado del cuerpo más visible)
+        const isLateral = lSh && rSh && Math.abs(lSh.x - rSh.x) < 0.12;
+
+        // Usar el lado más visible
+        const ear = lEar || rEar;
+        const sh = lSh || rSh;
+        const el = lEl || rEl;
+        const wr = lWr || rWr;
+        const hip = lHip || rHip;
+        const kn = lKn || rKn;
+        const an = lAn || rAn;
+
+        // ── Ángulo de cuello lateral (oído→hombro→cadera) — imagen 2 ──
+        if (isLateral && ear && sh && hip) {
+          drawAngleLine(ctx, ear, sh, hip, "Cuello", T.red, cW, cH);
+        }
+
+        // ── Ángulo de columna/tronco (hombro→cadera→rodilla) ──
+        if (sh && hip && kn) {
+          drawAngleLine(ctx, sh, hip, kn, "Tronco", "#FF9500", cW, cH);
+        }
+
+        // ── Ángulo de codo (hombro→codo→muñeca) — imagen 3 ──
+        if (sh && el && wr) {
+          const ang = drawAngleLine(ctx, sh, el, wr, "Codo", "#4B9EFF", cW, cH);
+          // ISO: codo 90-120° ideal
+          if (ang && (ang < 80 || ang > 130)) {
+            ctx.fillStyle = T.red + "cc"; ctx.font = "9px monospace"; ctx.textAlign = "center"; ctx.shadowBlur = 0;
+            ctx.fillText(ang < 80 ? "Codo muy cerrado" : "Codo muy abierto", el.x * cW, el.y * cH + 22);
+          }
+        }
+
+        // ── Ángulo de cadera (hombro→cadera→rodilla) ──
+        if (sh && hip && kn) {
+          const hx = hip.x * cW, hy = hip.y * cH;
+          const ang2 = angleBetween3(sh, hip, kn);
+          const hc = ang2 >= 80 && ang2 <= 120 ? T.green : T.amber;
+          ctx.fillStyle = hc; ctx.font = "bold 12px monospace"; ctx.textAlign = "left";
+          ctx.fillText(`${Math.round(ang2)}°`, hx + 8, hy + 4);
+        }
+
+        // ── Ángulo de rodilla (cadera→rodilla→tobillo) — imagen 3 ──
+        if (hip && kn && an) {
+          drawAngleLine(ctx, hip, kn, an, "Rodilla", "#A78BFA", cW, cH);
+        }
       });
     }
   });
@@ -1076,24 +1344,34 @@ function SamplingPanel({ sampling, setSampling, samplingMin, setSamplingMin, ela
   const pct = sampling ? Math.min(100, (elapsed / 60 / samplingMin) * 100) : 0;
   const remaining = sampling ? Math.max(0, samplingMin * 60 - elapsed) : 0;
   const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  const mob = isMobile();
 
   if (!sampling) {
     return (
-      <div style={{ padding: 14, borderBottom: `1px solid ${T.border}` }}>
-        <div style={{ fontSize: 9, color: T.textMuted, marginBottom: 8, letterSpacing: 1 }}>SESSION SETUP</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ padding: mob ? 14 : 14, borderBottom: `1px solid ${T.border}` }}>
+        <div style={{ fontSize: 9, color: T.textMuted, marginBottom: 8, letterSpacing: 1 }}>CONFIGURACIÓN DE SESIÓN</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: mob ? 8 : 6 }}>
           <input value={operator} onChange={e => setOperator(e.target.value)}
-            placeholder="Operator name" style={inputSt} />
+            placeholder="Nombre del operador" style={{ ...inputSt, fontSize: mob ? 12 : 10, padding: mob ? "9px 10px" : "6px 8px" }} />
           <input value={location} onChange={e => setLocation(e.target.value)}
-            placeholder="Location / Area" style={inputSt} />
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <span style={{ fontSize: 9, color: T.textMuted, whiteSpace: "nowrap" }}>Duration (min):</span>
-            <input type="number" min={1} max={60} value={samplingMin}
-              onChange={e => setSamplingMin(Math.max(1, parseInt(e.target.value) || 5))}
-              style={{ ...inputSt, width: 60, textAlign: "center" }} />
+            placeholder="Ubicación / Área" style={{ ...inputSt, fontSize: mob ? 12 : 10, padding: mob ? "9px 10px" : "6px 8px" }} />
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span style={{ fontSize: mob ? 11 : 9, color: T.textMuted, whiteSpace: "nowrap" }}>Duración (min):</span>
+            {/* Usar buttons +/- en móvil para evitar teclado numérico problemático */}
+            {mob ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 0, background: "rgba(255,255,255,0.04)", border: `1px solid ${T.border}`, borderRadius: 8, overflow: "hidden" }}>
+                <button onClick={() => setSamplingMin(m => Math.max(1, m - 1))} style={{ width: 36, height: 36, background: "transparent", border: "none", color: T.textSecondary, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                <span style={{ minWidth: 32, textAlign: "center", fontSize: 14, color: T.textPrimary, fontFamily: "monospace", fontWeight: 700 }}>{samplingMin}</span>
+                <button onClick={() => setSamplingMin(m => Math.min(60, m + 1))} style={{ width: 36, height: 36, background: "transparent", border: "none", color: T.textSecondary, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+              </div>
+            ) : (
+              <input type="number" min={1} max={60} value={samplingMin}
+                onChange={e => setSamplingMin(Math.max(1, parseInt(e.target.value) || 5))}
+                style={{ ...inputSt, width: 60, textAlign: "center" }} />
+            )}
           </div>
-          <button onClick={() => setSampling(true)} style={{ padding: "8px", background: "rgba(0,229,160,0.12)", border: `1px solid ${T.green}55`, borderRadius: 8, color: T.green, fontSize: 11, cursor: "pointer", fontFamily: "monospace", marginTop: 2 }}>
-            ▶ START SAMPLING
+          <button onClick={() => setSampling(true)} style={{ padding: mob ? "12px" : "8px", background: "rgba(0,229,160,0.12)", border: `1px solid ${T.green}55`, borderRadius: 8, color: T.green, fontSize: mob ? 13 : 11, cursor: "pointer", fontFamily: "monospace", marginTop: 2, fontWeight: 600 }}>
+            ▶ INICIAR MUESTREO
           </button>
         </div>
       </div>
@@ -1103,17 +1381,17 @@ function SamplingPanel({ sampling, setSampling, samplingMin, setSamplingMin, ela
   return (
     <div style={{ padding: "10px 14px", borderBottom: `1px solid ${T.border}` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-        <span style={{ fontSize: 9, color: T.green, letterSpacing: 1, animation: "pulse 1.5s infinite" }}>● SAMPLING</span>
-        <span style={{ fontSize: 11, fontFamily: "monospace", color: T.textPrimary }}>{fmt(remaining)}</span>
+        <span style={{ fontSize: 9, color: T.green, letterSpacing: 1, animation: "pulse 1.5s infinite" }}>● MUESTREANDO</span>
+        <span style={{ fontSize: mob ? 14 : 11, fontFamily: "monospace", color: T.textPrimary, fontWeight: 700 }}>{fmt(remaining)}</span>
       </div>
-      <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, marginBottom: 6 }}>
+      <div style={{ height: 5, background: "rgba(255,255,255,0.06)", borderRadius: 2, marginBottom: 8 }}>
         <div style={{ width: `${pct}%`, height: "100%", background: T.green, borderRadius: 2, boxShadow: `0 0 8px ${T.green}88`, transition: "width 1s linear" }} />
       </div>
       <div style={{ display: "flex", gap: 6 }}>
-        <button onClick={onFinish} style={{ flex: 1, padding: "7px", background: "rgba(0,229,160,0.1)", border: `1px solid ${T.green}44`, borderRadius: 8, color: T.green, fontSize: 10, cursor: "pointer" }}>
-          ⬛ Finish & Export PDF
+        <button onClick={onFinish} style={{ flex: 1, padding: mob ? "11px" : "7px", background: "rgba(0,229,160,0.1)", border: `1px solid ${T.green}44`, borderRadius: 8, color: T.green, fontSize: mob ? 12 : 10, cursor: "pointer", fontWeight: 600 }}>
+          Finalizar y Exportar PDF
         </button>
-        <button onClick={() => setSampling(false)} style={{ padding: "7px 10px", background: "rgba(255,75,110,0.1)", border: `1px solid ${T.red}44`, borderRadius: 8, color: T.red, fontSize: 10, cursor: "pointer" }}>✕</button>
+        <button onClick={() => setSampling(false)} style={{ padding: mob ? "11px 14px" : "7px 10px", background: "rgba(255,75,110,0.1)", border: `1px solid ${T.red}44`, borderRadius: 8, color: T.red, fontSize: mob ? 12 : 10, cursor: "pointer" }}>✕</button>
       </div>
     </div>
   );
@@ -1154,6 +1432,7 @@ export default function App() {
   const viewModeRef = useRef("frontal");
   const personsRef = useRef([]);
 
+  const [cameraFacing, setCameraFacing] = useState("user"); // frontal por defecto — más confiable
   const isRunning = cameraActive;
   const { persons, handRes, faceRes, status } = useVision({ videoRef, active: cameraActive, viewMode, enableHands: showHands, enableFace: showFace });
   const highRiskCount = persons.filter(p => p.risk?.level === "high").length;
@@ -1271,18 +1550,63 @@ export default function App() {
     });
   }, [persons]);
 
-  const startCamera = async () => {
+  const startCamera = async (facing) => {
+    const isMob = isMobile();
+    // En móvil default = frontal (user) — más confiable en iOS/Android browsers
+    // El usuario puede cambiar a trasera con el botón flip
+    const useFacing = facing || (isMob ? "user" : "user");
+    // Detener stream anterior
+    if (videoRef.current?.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(t => t.stop());
+      videoRef.current.srcObject = null;
+    }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" } });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          const r = videoRef.current.getBoundingClientRect();
-          setDisplaySize({ w: r.width || 640, h: r.height || 480 });
-        };
+      // Intentar con facing específico, fallback a cualquier cámara
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: isMob ? 640 : 1280 },
+            height: { ideal: isMob ? 480 : 720 },
+            facingMode: { ideal: useFacing }  // ideal en vez de exact — nunca falla
+          }
+        });
+      } catch {
+        // Fallback sin restricciones
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
       }
+      const vid = videoRef.current;
+      if (!vid) { stream.getTracks().forEach(t => t.stop()); return; }
+      vid.srcObject = stream;
+      vid.setAttribute("playsinline", "");
+      vid.setAttribute("muted", "");
+      // Esperar a que el video esté listo y reproducir explícitamente
+      await new Promise((res) => {
+        vid.onloadedmetadata = () => {
+          vid.play().catch(() => { });
+          const r = vid.getBoundingClientRect();
+          setDisplaySize({ w: r.width || 640, h: r.height || 480 });
+          res();
+        };
+        // Timeout fallback si onloadedmetadata no dispara (iOS quirk)
+        setTimeout(() => {
+          vid.play().catch(() => { });
+          const r = vid.getBoundingClientRect();
+          setDisplaySize({ w: r.width || 640, h: r.height || 480 });
+          res();
+        }, 1500);
+      });
       setCameraActive(true); setCameraError(null);
-    } catch { setCameraError("Camera denied — please allow camera access"); }
+    } catch (e) {
+      console.error("Camera error:", e);
+      setCameraError("No se pudo acceder a la cámara — verifica permisos");
+    }
+  };
+
+  const flipCamera = async () => {
+    const newFacing = cameraFacing === "user" ? "environment" : "user";
+    setCameraFacing(newFacing);
+    await startCamera(newFacing);
   };
   const stopCamera = () => {
     videoRef.current?.srcObject?.getTracks().forEach(t => t.stop());
@@ -1290,7 +1614,180 @@ export default function App() {
   };
 
   const sessSec = Math.floor((Date.now() - sessionStart) / 1000);
+  const mob = isMobile();
 
+  // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
+  if (mob) return (
+    <div className="mob-main" style={{ minHeight: "100vh", background: T.bg, fontFamily: "'DM Mono','Courier New',monospace", color: T.textPrimary, display: "flex", flexDirection: "column" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0;}
+        @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.35;}}
+        @keyframes slideIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+        input::placeholder{color:rgba(240,244,255,0.25);}
+        input:focus{border-color:rgba(0,229,160,0.4)!important;outline:none;}
+        button{-webkit-tap-highlight-color:transparent;}
+        @media (orientation: landscape) {
+          .mob-main{flex-direction:row!important;}
+          .mob-video{width:55%!important;aspect-ratio:unset!important;height:100vh!important;}
+          .mob-panel{width:45%!important;display:flex!important;flex-direction:column!important;overflow:auto!important;}
+          .mob-togglebar{flex-direction:column!important;width:auto!important;overflow-x:unset!important;overflow-y:auto!important;height:100%!important;border-bottom:none!important;border-right:1px solid rgba(255,255,255,0.08)!important;}
+        }
+      `}</style>
+
+      {/* Mobile Header */}
+      <header style={{ height: 56, borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", background: "rgba(4,4,10,0.97)", position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: "linear-gradient(135deg,#7B61FF,#00E5A0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚡</div>
+          <div>
+            <div style={{ fontSize: 15, letterSpacing: 1, lineHeight: 1.2, fontWeight: 600 }}>ERGO<span style={{ color: T.green }}>.HSE</span></div>
+            <div style={{ fontSize: 9, color: T.textMuted }}>IA · {viewMode === "frontal" ? "FRONTAL" : "LATERAL"} · {cameraFacing === "environment" ? "Cámara trasera" : "Cámara frontal"}</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {highRiskCount > 0 && <div style={{ padding: "4px 10px", background: "rgba(255,75,110,0.18)", border: `1px solid ${T.red}55`, borderRadius: 14, fontSize: 10, color: T.red, fontWeight: 700, animation: "pulse 1.5s infinite" }}>⚠ RIESGO</div>}
+          {isRunning && <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", background: "rgba(0,229,160,0.1)", border: `1px solid ${T.green}44`, borderRadius: 14 }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.green, animation: "pulse 1.5s infinite" }} />
+            <span style={{ fontSize: 9, color: T.green, fontWeight: 600 }}>{persons.length} detect.</span>
+          </div>}
+          {status === "loading" && <span style={{ fontSize: 9, color: T.amber, animation: "pulse 1s infinite" }}>Cargando IA...</span>}
+        </div>
+      </header>
+
+      {/* Video — pantalla completa ancho */}
+      <div className="mob-video" style={{ position: "relative", width: "100%", aspectRatio: "4/3", background: "#05050d", flexShrink: 0 }}>
+        <div ref={containerRef} style={{ position: "absolute", inset: 0 }}>
+          {/* Video siempre en el DOM — display:none impide reproducción en iOS */}
+          <video ref={videoRef} autoPlay muted playsInline
+            style={{
+              width: "100%", height: "100%", objectFit: "cover",
+              opacity: cameraActive ? 1 : 0, transition: "opacity 0.3s"
+            }} />
+          {!isRunning && (
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18, padding: 24, background: "#05050d" }}>
+              <div style={{ fontSize: 48 }}>📷</div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 15, color: T.textSecondary, marginBottom: 6, fontWeight: 600 }}>ERGO.HSE</div>
+                <div style={{ fontSize: 11, color: T.textMuted }}>Evaluación ergonómica con IA</div>
+                <div style={{ fontSize: 10, color: T.textMuted, marginTop: 3 }}>Hasta 6 personas · Detección de postura</div>
+              </div>
+              <button onClick={() => startCamera()} style={{ padding: "16px 40px", background: "rgba(0,229,160,0.14)", border: `2px solid ${T.green}77`, borderRadius: 14, color: T.green, fontSize: 16, cursor: "pointer", fontFamily: "monospace", fontWeight: 600, boxShadow: `0 0 24px rgba(0,229,160,0.25)` }}>
+                Iniciar Cámara
+              </button>
+              {cameraError && <div style={{ fontSize: 11, color: T.red, textAlign: "center", maxWidth: 280, padding: "8px 12px", background: "rgba(255,75,110,0.08)", border: `1px solid ${T.red}44`, borderRadius: 8 }}>{cameraError}</div>}
+            </div>
+          )}
+          {isRunning && <OverlayCanvas persons={persons} handRes={handRes} faceRes={faceRes} W={displaySize.w} H={displaySize.h} showTrails={showTrails} showHands={showHands} showFace={showFace} />}
+        </div>
+
+        {/* Controles sobre el video */}
+        {isRunning && (
+          <>
+            <div style={{ position: "absolute", top: 10, left: 10, zIndex: 10, padding: "4px 12px", background: "rgba(0,0,0,0.75)", borderRadius: 18, fontSize: 10, backdropFilter: "blur(8px)" }}>
+              {persons.length ? `✓ ${persons.length} detectado${persons.length > 1 ? "s" : ""}` : "Escaneando..."}
+            </div>
+            <div style={{ position: "absolute", top: 10, right: 10, zIndex: 10, display: "flex", gap: 8 }}>
+              {/* Flip cámara */}
+              <button onClick={flipCamera} style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(0,0,0,0.75)", border: `1px solid ${T.border}`, color: T.textSecondary, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(8px)" }}>
+                🔄
+              </button>
+              <button onClick={stopCamera} style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(255,75,110,0.2)", border: `1px solid ${T.red}55`, color: T.red, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+            </div>
+          </>
+        )}
+
+        {/* Score badge grande flotante */}
+        {isRunning && persons.length > 0 && (() => {
+          const avg = Math.round(persons.reduce((s, p) => s + (p.risk?.score || 0), 0) / persons.length);
+          const color = avg >= 75 ? T.green : avg >= 55 ? T.amber : T.red;
+          const r = 32, circ = 2 * Math.PI * r, dash = (avg / 100) * circ;
+          return (
+            <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 12, padding: "8px 18px", background: "rgba(4,4,10,0.9)", border: `1px solid ${color}55`, borderRadius: 24, backdropFilter: "blur(14px)", boxShadow: `0 0 24px ${color}33` }}>
+              <svg width={70} height={70} style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
+                <circle cx={35} cy={35} r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={6} />
+                <circle cx={35} cy={35} r={r} fill="none" stroke={color} strokeWidth={6}
+                  strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+                  style={{ filter: `drop-shadow(0 0 8px ${color})`, transition: "all 0.6s ease" }} />
+                <text x={35} y={31} fill={color} fontSize={16} fontWeight="700" textAnchor="middle"
+                  dominantBaseline="middle" transform="rotate(90 35 35)" fontFamily="monospace">{avg}</text>
+                <text x={35} y={46} fill={color + "88"} fontSize={8} textAnchor="middle"
+                  dominantBaseline="middle" transform="rotate(90 35 35)" fontFamily="monospace">/100</text>
+              </svg>
+              <div>
+                <div style={{ fontSize: 15, color, fontWeight: 700 }}>{avg >= 92 ? "Excelente" : avg >= 75 ? "Bueno" : avg >= 55 ? "Riesgo Mod." : "Riesgo Alto"}</div>
+                <div style={{ fontSize: 9, color: T.textMuted, marginTop: 2 }}>{persons.length} persona{persons.length > 1 ? "s" : ""} · {viewMode}</div>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* Toggle bar — botones grandes táctiles */}
+      <div style={{ display: "flex", gap: 8, padding: "10px 14px", borderBottom: `1px solid ${T.border}`, overflowX: "auto", background: "rgba(4,4,10,0.9)", WebkitOverflowScrolling: "touch", flexShrink: 0 }}>
+        {["frontal", "lateral"].map(m => (
+          <button key={m} onClick={() => setViewMode(m)} style={{ padding: "10px 18px", borderRadius: 22, border: `1.5px solid ${viewMode === m ? T.green + "99" : T.border}`, background: viewMode === m ? "rgba(0,229,160,0.15)" : "rgba(255,255,255,0.03)", color: viewMode === m ? T.green : T.textMuted, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "monospace", fontWeight: viewMode === m ? 700 : 400 }}>
+            {m === "frontal" ? "FRONTAL" : "LATERAL"}
+          </button>
+        ))}
+        <div style={{ width: 1, background: T.border, flexShrink: 0, margin: "4px 0" }} />
+        {[
+          { label: "Trail", on: showTrails, fn: () => setShowTrails(s => !s), color: T.blue },
+          { label: "Manos", on: showHands, fn: () => setShowHands(s => !s), color: T.green },
+          { label: "Cara", on: showFace, fn: () => setShowFace(s => !s), color: "#FF00CC" },
+        ].map(b => (
+          <button key={b.label} onClick={b.fn} style={{ padding: "10px 16px", borderRadius: 22, border: `1.5px solid ${b.on ? b.color + "99" : T.border}`, background: b.on ? `${b.color}18` : "rgba(255,255,255,0.03)", color: b.on ? b.color : T.textMuted, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "monospace", fontWeight: b.on ? 700 : 400 }}>
+            {b.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Panel scrolleable */}
+      <div style={{ flex: 1, overflow: "auto", WebkitOverflowScrolling: "touch", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 12 }}>
+
+        {/* Personas detectadas */}
+        {isRunning && persons.length > 0 && (
+          <>
+            <div style={{ fontSize: 9, color: T.textMuted, letterSpacing: 1, fontWeight: 600 }}>ANÁLISIS INDIVIDUAL</div>
+            {persons.map((p, i) => <PersonCard key={i} person={p} idx={i} />)}
+          </>
+        )}
+
+        {/* Muestreo */}
+        <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 14, overflow: "hidden" }}>
+          <SamplingPanel
+            sampling={sampling} setSampling={handleStartSampling}
+            samplingMin={samplingMin} setSamplingMin={setSamplingMin}
+            elapsed={elapsed} onFinish={handleFinishSampling}
+            operator={operator} setOperator={setOperator}
+            location={location} setLocation={setLocation}
+            viewMode={viewMode}
+          />
+        </div>
+
+        {/* Umbrales HSE */}
+        <div>
+          <div style={{ fontSize: 9, color: T.textMuted, letterSpacing: 1, marginBottom: 6 }}>UMBRALES HSE</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+            {[["92–100", "Excelente", T.green], ["75–91", "Bueno", T.green], ["55–74", "Moderado", T.amber], ["<55", "Riesgo Alto", T.red]].map(([r, l, c]) => (
+              <div key={r} style={{ fontSize: 10, display: "flex", justifyContent: "space-between", padding: "7px 10px", background: `${c}08`, border: `1px solid ${c}28`, borderRadius: 10 }}>
+                <span style={{ color: c, fontFamily: "monospace", fontWeight: 600 }}>{r}</span>
+                <span style={{ color: c + "cc" }}>{l}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {!isRunning && (
+          <div style={{ textAlign: "center", padding: "20px 0", color: T.textMuted, fontSize: 11 }}>
+            Inicia la cámara para comenzar el análisis
+          </div>
+        )}
+      </div>
+      <Toasts toasts={toasts} />
+    </div>
+  );
+
+  // ── DESKTOP LAYOUT ────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: "100vh", background: T.bg, fontFamily: "'DM Mono','Courier New',monospace", color: T.textPrimary, overflow: "hidden" }}>
       <style>{`
@@ -1310,148 +1807,105 @@ export default function App() {
           <span style={{ fontSize: 12, letterSpacing: 1 }}>ERGO<span style={{ color: T.green }}>.HSE</span><span style={{ color: T.textMuted, fontSize: 8, marginLeft: 6 }}>AI v4 · {viewMode.toUpperCase()}</span></span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {/* View mode toggle */}
           <div style={{ display: "flex", gap: 4, padding: "3px", background: "rgba(255,255,255,0.04)", borderRadius: 18, border: `1px solid ${T.border}` }}>
             {["frontal", "lateral"].map(m => (
               <button key={m} onClick={() => setViewMode(m)} style={{ padding: "3px 10px", borderRadius: 16, border: "none", background: viewMode === m ? "rgba(0,229,160,0.15)" : "transparent", color: viewMode === m ? T.green : T.textMuted, fontSize: 9, cursor: "pointer", fontFamily: "monospace", transition: "all 0.2s" }}>
-                {m === "frontal" ? "👁 FRONTAL" : "◀ LATERAL"}
+                {m === "frontal" ? "FRONTAL" : "LATERAL"}
               </button>
             ))}
           </div>
           {isRunning && <span style={{ fontSize: 8, color: T.textMuted }}>{`${String(Math.floor(sessSec / 60)).padStart(2, "0")}:${String(sessSec % 60).padStart(2, "0")}`}</span>}
-          {highRiskCount > 0 && <div style={{ padding: "2px 8px", background: "rgba(255,75,110,0.1)", border: `1px solid ${T.red}44`, borderRadius: 16, fontSize: 9, color: T.red, animation: "pulse 1.5s infinite" }}>⚠ {highRiskCount} HIGH</div>}
+          {highRiskCount > 0 && <div style={{ padding: "2px 8px", background: "rgba(255,75,110,0.1)", border: `1px solid ${T.red}44`, borderRadius: 16, fontSize: 9, color: T.red, animation: "pulse 1.5s infinite" }}>⚠ {highRiskCount} ALTO</div>}
           {isRunning && <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 8px", background: "rgba(0,229,160,0.07)", border: `1px solid ${T.green}33`, borderRadius: 16 }}>
             <div style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, animation: "pulse 1.5s infinite" }} />
-            <span style={{ fontSize: 8, color: T.green }}>LIVE · {persons.length} detected</span>
+            <span style={{ fontSize: 8, color: T.green }}>LIVE · {persons.length} detectado{persons.length !== 1 ? "s" : ""}</span>
           </div>}
-          {status === "loading" && <span style={{ fontSize: 8, color: T.amber, animation: "pulse 1s infinite" }}>⏳ Loading AI...</span>}
+          {status === "loading" && <span style={{ fontSize: 8, color: T.amber, animation: "pulse 1s infinite" }}>Cargando IA...</span>}
         </div>
       </header>
 
-      {/* Main grid */}
+      {/* Main grid desktop */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", height: "calc(100vh - 48px)" }}>
-
-        {/* Camera */}
         <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10, overflow: "auto" }}>
           <div style={{
             background: T.surface, border: `1px solid ${T.border}`, borderRadius: 14, overflow: "hidden", position: "relative", aspectRatio: "16/9", maxHeight: 440,
             boxShadow: highRiskCount > 0 ? "0 0 50px rgba(255,75,110,0.2)" : persons.length > 0 ? "0 0 30px rgba(0,229,160,0.1)" : "none", transition: "box-shadow 1s ease"
           }}>
-
             <div ref={containerRef} style={{ position: "absolute", inset: 0 }}>
-              <video ref={videoRef} autoPlay muted playsInline style={{ width: "100%", height: "100%", objectFit: "cover", display: cameraActive ? "block" : "none" }} />
-
+              <video ref={videoRef} autoPlay muted playsInline style={{ width: "100%", height: "100%", objectFit: "cover", opacity: cameraActive ? 1 : 0, transition: "opacity 0.3s" }} />
               {!isRunning && (
                 <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, background: "#05050d" }}>
                   <div style={{ fontSize: 32 }}>📷</div>
                   <div style={{ textAlign: "center" }}>
                     <div style={{ fontSize: 11, color: T.textSecondary }}>ERGO.HSE Ergonomic AI</div>
-                    <div style={{ fontSize: 9, color: T.textMuted, marginTop: 4 }}>MoveNet MultiPose · Up to 6 persons · {viewMode === "lateral" ? "Side view (recommended)" : "Front view"}</div>
+                    <div style={{ fontSize: 9, color: T.textMuted, marginTop: 4 }}>MoveNet MultiPose · Hasta 6 personas · {viewMode === "lateral" ? "Vista lateral (recomendado)" : "Vista frontal"}</div>
                   </div>
                   {viewMode === "lateral" && <div style={{ fontSize: 9, color: T.amber, background: "rgba(255,184,48,0.08)", border: `1px solid ${T.amber}33`, borderRadius: 8, padding: "6px 12px", maxWidth: 280, textAlign: "center" }}>
-                    💡 Lateral mode: Position camera 30–45° to the side for best neck & spine accuracy
+                    Modo lateral: posicionar cámara 30–45° de lado para máxima precisión
                   </div>}
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={startCamera} style={btnSt(T.green)}>📷 Start Camera</button>
+                    <button onClick={startCamera} style={btnSt(T.green)}>Iniciar Cámara</button>
                   </div>
                   {cameraError && <div style={{ fontSize: 9, color: T.red, maxWidth: 240, textAlign: "center" }}>{cameraError}</div>}
                 </div>
               )}
-
               {isRunning && <OverlayCanvas persons={persons} handRes={handRes} faceRes={faceRes} W={displaySize.w} H={displaySize.h} showTrails={showTrails} showHands={showHands} showFace={showFace} />}
             </div>
-
-            {/* Controls */}
             {isRunning && (
               <>
                 <div style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}>
                   <div style={{ padding: "2px 8px", background: "rgba(0,0,0,0.75)", borderRadius: 16, border: `1px solid ${T.border}`, fontSize: 8, backdropFilter: "blur(8px)" }}>
-                    {status === "loading" ? "⏳ Loading..." : persons.length ? `✓ ${persons.length} pose${persons.length > 1 ? "s" : ""}` : "Scanning..."}
+                    {status === "loading" ? "Cargando..." : persons.length ? `✓ ${persons.length} pose${persons.length > 1 ? "s" : ""}` : "Escaneando..."}
                   </div>
                 </div>
                 <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 5, zIndex: 10 }}>
                   <Tog label="Trails" on={showTrails} onClick={() => setShowTrails(s => !s)} color={T.blue} />
-                  <Tog label="Hands" on={showHands} onClick={() => setShowHands(s => !s)} color={T.green} />
-                  <Tog label="Face" on={showFace} onClick={() => setShowFace(s => !s)} color={T.pink} />
+                  <Tog label="Manos" on={showHands} onClick={() => setShowHands(s => !s)} color={T.green} />
+                  <Tog label="Cara" on={showFace} onClick={() => setShowFace(s => !s)} color={T.pink} />
                   <button onClick={stopCamera} style={{ padding: "3px 8px", background: "rgba(255,75,110,0.15)", border: `1px solid ${T.red}44`, borderRadius: 16, color: T.red, fontSize: 9, cursor: "pointer" }}>✕</button>
                 </div>
               </>
             )}
           </div>
-
-          {/* Mode guidance */}
           <div style={{ display: "flex", gap: 8, padding: "8px 12px", background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 9, color: T.textMuted }}>
             {viewMode === "frontal"
-              ? <>👁 <b style={{ color: T.textSecondary }}>FRONTAL:</b> Best for shoulder symmetry, lateral tilt, head up/down. Position camera at eye level, facing the person directly.</>
-              : <>◀ <b style={{ color: T.textSecondary }}>LATERAL:</b> Best for neck forward posture and thoracic kyphosis. Camera at 30–45° side angle, subject facing screen naturally.</>
+              ? <><b style={{ color: T.textSecondary }}>FRONTAL:</b>&nbsp;Ideal para simetría de hombros, inclinación lateral y posición vertical de cabeza. Cámara al nivel de los ojos.</>
+              : <><b style={{ color: T.textSecondary }}>LATERAL:</b>&nbsp;Ideal para cuello adelantado y cifosis torácica. Cámara a 30–45° de lado, persona mirando hacia la pantalla.</>
             }
           </div>
-
-          {/* Person legend */}
           {persons.length > 0 && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {persons.map((_, i) => {
-                const p = PALETTE[i % PALETTE.length];
-                return <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 9px", background: p.bg, border: `1px solid ${p.stroke}33`, borderRadius: 16 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: p.stroke, boxShadow: `0 0 5px ${p.glow}` }} />
-                  <span style={{ fontSize: 9, color: p.stroke }}>{p.label}</span>
-                </div>;
-              })}
-              {showHands && <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 9px", background: "rgba(0,229,160,0.06)", border: `1px solid ${T.green}33`, borderRadius: 16 }}>
-                <div style={{ width: 5, height: 5, borderRadius: "50%", background: T.green }} />
-                <span style={{ fontSize: 9, color: T.green }}>Hands</span>
-              </div>}
-              {showFace && <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 9px", background: "rgba(255,107,186,0.06)", border: `1px solid ${T.pink}33`, borderRadius: 16 }}>
-                <div style={{ width: 5, height: 5, borderRadius: "50%", background: T.pink }} />
-                <span style={{ fontSize: 9, color: T.pink }}>Face Mesh</span>
-              </div>}
+              {persons.map((_, i) => { const p = PALETTE[i % PALETTE.length]; return <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 9px", background: p.bg, border: `1px solid ${p.stroke}33`, borderRadius: 16 }}><div style={{ width: 5, height: 5, borderRadius: "50%", background: p.stroke, boxShadow: `0 0 5px ${p.glow}` }} /><span style={{ fontSize: 9, color: p.stroke }}>{p.label}</span></div>; })}
+              {showHands && <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 9px", background: "rgba(0,229,160,0.06)", border: `1px solid ${T.green}33`, borderRadius: 16 }}><div style={{ width: 5, height: 5, borderRadius: "50%", background: T.green }} /><span style={{ fontSize: 9, color: T.green }}>Manos</span></div>}
+              {showFace && <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 9px", background: "rgba(255,0,204,0.06)", border: `1px solid ${T.pink}33`, borderRadius: 16 }}><div style={{ width: 5, height: 5, borderRadius: "50%", background: "#FF00CC" }} /><span style={{ fontSize: 9, color: "#FF00CC" }}>Cara</span></div>}
             </div>
           )}
         </div>
 
-        {/* Right panel */}
         <div style={{ borderLeft: `1px solid ${T.border}`, display: "flex", flexDirection: "column", overflow: "hidden", background: "rgba(4,4,10,0.7)" }}>
-
-          {/* Overall score */}
           <div style={{ padding: 14, borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "center" }}>
-            {persons.length > 0
-              ? <OverallGauge persons={persons} />
-              : <div style={{ color: T.textMuted, fontSize: 10, textAlign: "center", padding: "12px 0" }}>{isRunning ? "Detecting..." : "Start camera"}</div>}
+            {persons.length > 0 ? <OverallGauge persons={persons} /> : <div style={{ color: T.textMuted, fontSize: 10, textAlign: "center", padding: "12px 0" }}>{isRunning ? "Detectando..." : "Iniciar cámara"}</div>}
           </div>
-
-          {/* Sampling panel */}
-          <SamplingPanel
-            sampling={sampling} setSampling={handleStartSampling}
-            samplingMin={samplingMin} setSamplingMin={setSamplingMin}
-            elapsed={elapsed} onFinish={handleFinishSampling}
-            operator={operator} setOperator={setOperator}
-            location={location} setLocation={setLocation}
-            viewMode={viewMode}
-          />
-
-          {/* HSE thresholds */}
+          <SamplingPanel sampling={sampling} setSampling={handleStartSampling} samplingMin={samplingMin} setSamplingMin={setSamplingMin} elapsed={elapsed} onFinish={handleFinishSampling} operator={operator} setOperator={setOperator} location={location} setLocation={setLocation} viewMode={viewMode} />
           <div style={{ padding: "8px 14px", borderBottom: `1px solid ${T.border}` }}>
-            <div style={{ fontSize: 8, color: T.textMuted, marginBottom: 6, letterSpacing: 1 }}>HSE THRESHOLDS</div>
+            <div style={{ fontSize: 8, color: T.textMuted, marginBottom: 6, letterSpacing: 1 }}>UMBRALES HSE</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
-              {[["92–100", "Excellent", T.green], ["75–91", "Good", T.green], ["55–74", "Moderate", T.amber], ["<55", "High Risk", T.red]].map(([r, l, c]) => (
+              {[["92–100", "Excelente", T.green], ["75–91", "Bueno", T.green], ["55–74", "Moderado", T.amber], ["<55", "Riesgo Alto", T.red]].map(([r, l, c]) => (
                 <div key={r} style={{ fontSize: 8, display: "flex", justifyContent: "space-between", padding: "3px 7px", background: `${c}08`, border: `1px solid ${c}22`, borderRadius: 5 }}>
                   <span style={{ color: c, fontFamily: "monospace" }}>{r}</span><span style={{ color: c + "99" }}>{l}</span>
                 </div>
               ))}
             </div>
           </div>
-
-          {/* Individual analysis */}
           <div style={{ flex: 1, overflow: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ fontSize: 8, color: T.textMuted, letterSpacing: 1 }}>INDIVIDUAL ANALYSIS</div>
-            {!isRunning && <div style={{ color: T.textMuted, fontSize: 10, textAlign: "center", padding: "16px 0" }}>No active session</div>}
-            {isRunning && !persons.length && <div style={{ color: T.textMuted, fontSize: 10, textAlign: "center", padding: "16px 0" }}><div style={{ fontSize: 18, marginBottom: 6 }}>👁</div>Scanning...</div>}
+            <div style={{ fontSize: 8, color: T.textMuted, letterSpacing: 1 }}>ANÁLISIS INDIVIDUAL</div>
+            {!isRunning && <div style={{ color: T.textMuted, fontSize: 10, textAlign: "center", padding: "16px 0" }}>Sin sesión activa</div>}
+            {isRunning && !persons.length && <div style={{ color: T.textMuted, fontSize: 10, textAlign: "center", padding: "16px 0" }}>Escaneando...</div>}
             {persons.map((p, i) => <PersonCard key={i} person={p} idx={i} />)}
           </div>
-
           <div style={{ padding: "6px 14px", borderTop: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 7, color: T.textMuted }}>MoveNet MultiPose · ISO 11226 · EN 1005-4</span>
-            <span style={{ fontSize: 7, color: T.textMuted }}>v4.0</span>
+            <span style={{ fontSize: 7, color: T.textMuted }}>MoveNet · ISO 11226 · EN 1005-4</span>
+            <span style={{ fontSize: 7, color: T.textMuted }}>v4.1</span>
           </div>
         </div>
       </div>
@@ -1460,4 +1914,11 @@ export default function App() {
   );
 }
 
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function isMobile() {
+  return typeof window !== "undefined" && (window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
+}
+function MobTog({ label, on, onClick, color }) {
+  return <button onClick={onClick} style={{ padding: "5px 10px", borderRadius: 14, border: `1px solid ${on ? color + "66" : T.border}`, background: on ? `${color}18` : "transparent", color: on ? color : T.textMuted, fontSize: 9, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "monospace" }}>{label}</button>;
+}
 function btnSt(color) { return { padding: "8px 16px", background: `${color}12`, border: `1px solid ${color}55`, borderRadius: 8, color, fontSize: 10, cursor: "pointer", fontFamily: "monospace" }; }
