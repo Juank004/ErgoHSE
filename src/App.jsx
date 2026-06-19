@@ -2025,4 +2025,4 @@ function isMobile() {
 function MobTog({ label, on, onClick, color }) {
   return <button onClick={onClick} style={{ padding: "5px 10px", borderRadius: 14, border: `1px solid ${on ? color + "66" : T.border}`, background: on ? `${color}18` : "transparent", color: on ? color : T.textMuted, fontSize: 9, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "monospace" }}>{label}</button>;
 }
-function btnSt(color) { return { padding: "8px 16px", background: `${color}12`, border: `1px solid ${color}55`, borderRadius: 8, color, fontSize: 10, cursor: "pointer", fontFamily: "monospace" }; }"// Actualizaci¢n $(date)" 
+function btnSt(color) { return { padding: "8px 16px", background: `${color}12`, border: `1px solid ${color}55`, borderRadius: 8, color, fontSize: 10, cursor: "pointer", fontFamily: "monospace" }; }
