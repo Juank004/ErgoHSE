@@ -2,11 +2,13 @@
   "name": "7_vision-artificial",
   "version": "1.0.0",
   "description": "",
+  "homepage": "https://Juank004.github.io/ErgoHSE/",
   "main": "index.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
   },
   "keywords": [],
